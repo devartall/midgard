@@ -1,3 +1,5 @@
+import { edgePoints, wallEdges, corners } from './hex.js';
+import { swingPose, bladeSegment, aimAngle, MELEE, ENEMY_REACH } from './combat.js';
 import { PARTS, blocked, distance } from './game.js';
 
 function line(c, points, color, width = 1) {
@@ -12,7 +14,8 @@ function oval(c, x, y, rx, ry, color) {
 
 export function drawFloor(r, p) {
   const c = r.ctx;
-  r.diamond(p.x, p.y, .97, p.hp <= 0 ? '#575942' : '#968253', '#c6af7d55');
+  r.hex(p.x, p.y, .97, p.hp <= 0 ? '#575942' : '#968253', '#c6af7d55');
+  c.save();c.beginPath();corners(p.x,p.y,.94).forEach((v,i)=>{const q=r.screen(v.x,v.y);if(i)c.lineTo(q.x,q.y);else c.moveTo(q.x,q.y);});c.closePath();c.clip();
   for (let i = -2; i <= 2; i++) {
     const a = r.screen(p.x + i * .18, p.y - .47), b = r.screen(p.x + i * .18, p.y + .47);
     line(c, [[a.x, a.y], [b.x, b.y]], '#4e452fa0');
@@ -23,24 +26,27 @@ export function drawFloor(r, p) {
     const q = r.screen(p.x + x, p.y + y);
     oval(c, q.x, q.y, 1, .7, '#433e31');
   }
+  c.restore();
 }
 
-function wallTexture(r, q, width, height, stone) {
-  const c = r.ctx;
-  // Courses/planks follow the two visible isometric faces.
-  for (let row = 5; row < height; row += stone ? 9 : 6) {
-    line(c, [[q.x - width, q.y - row], [q.x, q.y + width / 2 - row], [q.x + width, q.y - row]], stone ? '#34473f' : '#49422fa0');
-    line(c, [[q.x - width + 2, q.y - row - 1], [q.x, q.y + width / 2 - row - 1]], stone ? '#a4afa05c' : '#d3b98050');
-    if (stone) for (const side of [-1, 1]) {
-      const x = q.x + side * (row % 18 ? width * .3 : width * .65);
-      const y = q.y + (width - Math.abs(x - q.x)) / 2 - row;
-      line(c, [[x, y], [x, y - 8]], '#384c43');
+function thinWall(r,p,g) {
+  const c=r.ctx,h=r.scale*(p.type==='reinforce'?1.35:1.18),stone=p.type==='reinforce';
+  for(const edge of wallEdges(p)) {
+    const [u,v]=edgePoints(p,edge),a=r.screen(u.x,u.y),b=r.screen(v.x,v.y);
+    let end=b;
+    if(p.type==='door'&&p.open)end={x:a.x+(b.x-a.x)*.35-(b.y-a.y)*.8,y:a.y+(b.y-a.y)*.35+(b.x-a.x)*.2};
+    r.poly([[a.x,a.y],[end.x,end.y],[end.x,end.y-h],[a.x,a.y-h]],stone?'#738776':'#987b4e','#c0a577');
+    r.poly([[a.x,a.y-h],[end.x,end.y-h],[end.x+2,end.y-h-2],[a.x+2,a.y-h-2]],stone?'#b6beac':'#dbc294');
+    for(let i=1;i<5;i++){
+      const t=i/5,x=a.x+(end.x-a.x)*t,y=a.y+(end.y-a.y)*t;
+      if(!stone)line(c,[[x,y],[x,y-h]],'#514630');
+      else line(c,[[a.x,a.y-h*t],[end.x,end.y-h*t]],'#465d50');
     }
-  }
-  if (!stone) for (const side of [-1, 1]) {
-    const x = q.x + width * .75 * side, y = q.y + width * .125;
-    line(c, [[x, y - 2], [x, y - height + 2]], '#4c4434', 3);
-    for (const offset of [5, height - 5]) oval(c, x, y - offset, 1.1, 1.1, '#c0b48c');
+    for(const q of [a,b])line(c,[[q.x,q.y],[q.x,q.y-h-2]],stone?'#9eac96':'#b59b69',3);
+    if(p.type==='door'){
+      line(c,[[a.x,a.y-h+5],[end.x,end.y-4]],'#cfb378',2);
+      oval(c,a.x+(end.x-a.x)*.8,a.y+(end.y-a.y)*.8-h*.4,2,2,'#ead091');
+    }
   }
 }
 
@@ -55,26 +61,8 @@ export function drawBuilding(r, p, g) {
     c.restore(); return;
   }
   if (['wall', 'reinforce', 'door'].includes(p.type)) {
-    if (distance(p, g.player) < 2.8 && p.x + p.y > g.player.x + g.player.y) c.globalAlpha = .48;
-    const h = s * (p.type === 'reinforce' ? 1.3 : 1.1), w = s * .92;
-    if (p.type === 'door' && p.open) {
-      r.box(p.x - .38, p.y, .13, h, ['#b4a06c', '#514936', '#807047']);
-      r.box(p.x + .38, p.y, .10, h, ['#b4a06c', '#514936', '#807047']);
-      line(c, [[q.x - 12, q.y - h], [q.x + 12, q.y - h + 4]], '#ad9969', 4);
-      r.poly([[q.x - 10, q.y - h], [q.x - 26, q.y - h + 8], [q.x - 26, q.y + 5], [q.x - 10, q.y - 4]], '#796b43', '#b5a06b');
-      line(c, [[q.x - 12, q.y - h + 6], [q.x - 24, q.y]], '#423d2c', 2);
-    } else {
-      const stone = p.type === 'reinforce';
-      r.box(p.x, p.y, .92, h, stone ? ['#95a091', '#576c60', '#748673'] : ['#b29b6a', '#70603e', '#8e784d']);
-      wallTexture(r, q, w, h, stone);
-      if (p.type === 'door') {
-        r.poly([[q.x - 10, q.y - h + 2], [q.x + 8, q.y - h + 6], [q.x + 8, q.y + 6], [q.x - 10, q.y + 1]], '#625336', '#c4aa72');
-        for (let i = -5; i < 8; i += 5) line(c, [[q.x + i, q.y - h + 5], [q.x + i, q.y + 1]], '#332f24');
-        line(c, [[q.x - 8, q.y - h + 6], [q.x + 6, q.y]], '#b3985f', 2);
-        oval(c, q.x + 3, q.y - h * .35, 2.5, 3, '#d1b373');
-        oval(c, q.x + 3, q.y - h * .35, 1, 1.5, '#423d29');
-      }
-    }
+    if (distance(p, g.player) < 2.8 && p.x + p.y*1.3660254 > g.player.x + g.player.y*1.3660254) c.globalAlpha = .48;
+    thinWall(r,p,g);
   } else if (p.type === 'fire') {
     r.diamond(p.x, p.y, .62, '#38382c');
     line(c, [[q.x - 10, q.y + 3], [q.x + 9, q.y - 4]], '#4a3020', 5);
@@ -170,14 +158,14 @@ function humanoid(r, actor, g, pose, player) {
   if (player) { r.poly([[-4, -30], [6, -31], [3, -24], [-3, -26]], '#796346'); }
   else { line(c, [[-5, -38], [-11, -45]], '#a6a987', 2); line(c, [[4, -39], [10, -45]], '#a6a987', 2); }
   c.fillStyle = player ? '#273d37' : '#e1bd77'; c.fillRect(2, -34, 3, 2);
-  if (player && g.player.weapon === 'bow' && g.player.inv.bow) {
+  if (player && g.player.weapon === 'bow' && g.player.inv.bow && !g.player.swing) {
     const pull = pose.strike * 7;
     line(c, [[7, -25], [15, -23]], skin, 4);
     line(c, [[-4, -25], [10 - pull, -23]], skin, 3);
     c.strokeStyle = '#d1ad6d'; c.lineWidth = 2; c.beginPath(); c.arc(15, -23, 15, -1.4, 1.4); c.stroke();
     line(c, [[18, -38], [13 - pull, -23], [18, -8]], '#ddd4b0');
     line(c, [[11 - pull, -23], [31, -23]], '#d6c399');
-  } else {
+  } else if (!player) {
     c.save(); c.translate(8, -25);
     const angle = pose.windup ? -.9 - pose.windup * 1.4 : pose.strike ? -1.8 + (1 - pose.strike) * 4 : .15 + pose.step * .25;
     c.rotate(angle);
@@ -190,8 +178,8 @@ function humanoid(r, actor, g, pose, player) {
     }
     c.restore();
   }
-  if (player && (g.player.blocking || g.player.parry > 0)) {
-    const glow = g.player.parry > 0 ? '#b2eee7' : '#c5c8a0';
+  if (player && g.player.blocking) {
+    const glow = '#c5c8a0';
     r.poly([[-15, -28], [-6, -25], [-7, -14], [-14, -10], [-20, -19]], '#657e71', glow);
     line(c, [[-14, -25], [-14, -14]], glow, 2);
   }
@@ -244,26 +232,51 @@ export function drawActor(r, actor, g, player, pose) {
   c.save();
   oval(c, q.x, q.y + 2, boss ? 29 : actor.type === 'wolf' ? 20 : 13, boss ? 10 : 5, '#071c1c66');
   if (!player && actor.phase === 'windup') {
-    const radius = boss ? (actor.hp < actor.maxHp * .5 && actor.attackIndex % 3 === 0 ? 4.2 : 2.8) : 1.5;
+    const radius = boss ? (actor.hp < actor.maxHp * .5 && actor.attackIndex % 3 === 0 ? 4.2 : 2.8) : ENEMY_REACH[actor.type];
     c.fillStyle = '#bd664335'; c.strokeStyle = '#e7ad6b99'; c.lineWidth = 1;
     c.beginPath(); c.ellipse(q.x, q.y, r.scale * radius * Math.SQRT2, r.scale * radius / Math.SQRT2, 0, 0, Math.PI * 2); c.fill(); c.stroke();
     c.strokeStyle = '#f1b177'; c.lineWidth = 2; c.beginPath();
-    c.arc(q.x, q.y - (boss ? 98 : 48), 10, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pose.windup); c.stroke();
+    c.arc(q.x, q.y - (boss ? 114 : 63), 10, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pose.windup); c.stroke();
   }
-  c.save(); c.translate(q.x + pose.lunge * pose.facing, q.y + pose.bob); c.scale(pose.facing, 1);
+  c.save(); c.translate(q.x + pose.lunge * pose.facing, q.y + pose.bob); c.scale(pose.facing*(boss?1.15:1.3),boss?1.15:1.3);
   if (actor.type === 'wolf') wolf(r, pose);
   else if (boss) guardian(r, actor, pose);
   else humanoid(r, actor, g, pose, player);
-  if (pose.strike && !(player && g.player.weapon === 'bow')) {
+  if (pose.strike && !player) {
     c.strokeStyle = boss ? '#d7b97899' : player ? '#e8eac7aa' : '#dba77699';
     c.lineWidth = boss ? 4 : 2; c.beginPath();
     c.arc(8, boss ? -34 : -23, boss ? 40 : 23, -.8 + (1 - pose.strike) * 2, .3 + (1 - pose.strike) * 2); c.stroke();
   }
   c.restore();
+  if(player)drawMelee(r,actor,g,pose);
   if (!player && actor.hp < actor.maxHp && !boss) {
-    c.fillStyle = '#13281d'; c.fillRect(q.x - 15, q.y - 54, 30, 3);
-    c.fillStyle = '#bf8267'; c.fillRect(q.x - 15, q.y - 54, 30 * actor.hp / actor.maxHp, 3);
+    c.fillStyle = '#13281d'; c.fillRect(q.x - 15, q.y - 70, 30, 3);
+    c.fillStyle = '#bf8267'; c.fillRect(q.x - 15, q.y - 70, 30 * actor.hp / actor.maxHp, 3);
   }
-  if (actor.stun > 0) r.text(q.x, q.y - (boss ? 104 : 61), '✧', '#d9df9b', 20);
+  if (actor.stun > 0) r.text(q.x, q.y - (boss ? 120 : 76), '✧', '#d9df9b', 20);
+  c.restore();
+}
+
+function drawMelee(r,actor,g,pose) {
+  const swing=swingPose(actor.swing,g.time),weapon=swing?actor.swing.weapon:actor.inv[actor.weapon]?actor.weapon:'hands';if(weapon==='bow')return;
+  const angle=swing?swing.angle:aimAngle(actor.facing)-.7,reach=MELEE[weapon].reach;
+  const lift=swing?.phase==='windup'?Math.sin(swing.age/MELEE[weapon].windup*Math.PI)*8:0;
+  const z=29+lift,q=r.screen(actor.x,actor.y),[u,v]=bladeSegment(actor,angle,reach),a=r.screen(u.x,u.y,z),b=r.screen(v.x,v.y,z);
+  const c=r.ctx;c.save();
+  line(c,[[q.x+7*pose.facing,q.y-31],[a.x,a.y]],'#9aaf9c',5);
+  if(weapon==='sword'){
+    line(c,[[a.x,a.y],[b.x,b.y]],'#53665c',5);
+    line(c,[[a.x,a.y],[b.x,b.y]],'#e0e6d0',3);
+    const len=Math.max(1,Math.hypot(b.x-a.x,b.y-a.y)),dx=(b.x-a.x)/len,dy=(b.y-a.y)/len;
+    line(c,[[a.x-dy*5,a.y+dx*5],[a.x+dy*5,a.y-dx*5]],'#d1b477',2);
+  }else oval(c,b.x,b.y,4,4,'#dbc29b');
+  oval(c,a.x,a.y,3,3,'#d4ba93');
+  if(swing?.phase==='active'){
+    const points=[];for(let i=0;i<=6;i++){
+      const theta=Math.max(actor.swing.angle-.8,angle-.3+i*.05),tip=bladeSegment(actor,theta,reach)[1],p=r.screen(tip.x,tip.y,z);
+      points.push([p.x,p.y]);
+    }
+    line(c,points,'#eae5c588',2);
+  }
   c.restore();
 }

@@ -1,3 +1,4 @@
+import { toPlane, fromPlane, corners, hexRound, edgePoints } from './hex.js';
 import { ActorAnimator } from './animation.js';
 import { drawActor, drawBuilding, drawFloor } from './art.js';
 import {
@@ -32,16 +33,15 @@ export class Renderer {
     this.ctx.setTransform(dpr,0,0,dpr,0,0);
   }
   screen(x,y,z=0){
-    const s=this.scale;
-    return {
-      x:this.w*.5+(x-y-this.camera.x+this.camera.y)*s,y:this.h*.51+(x+y-this.camera.x-this.camera.y)*s*.5-z
-    };
+    const p=toPlane(x-this.camera.x,y-this.camera.y),s=this.scale;
+    return {x:this.w*.5+(p.x-p.y)*s,y:this.h*.51+(p.x+p.y)*s*.5-z};
   }
   world(sx,sy){
-    const a=(sx-this.w*.5)/this.scale+this.camera.x-this.camera.y,b=(sy-this.h*.51)/(this.scale*.5)+this.camera.x+this.camera.y;
-    return{
-      x:(a+b)/2,y:(b-a)/2
-    };
+    const a=(sx-this.w*.5)/this.scale,b=(sy-this.h*.51)/(this.scale*.5),p=fromPlane((a+b)/2,(b-a)/2);
+    return {x:p.x+this.camera.x,y:p.y+this.camera.y};
+  }
+  hex(x,y,size,fill,stroke) {
+    this.poly(corners(x,y,size).map(p=>{const q=this.screen(p.x,p.y);return[q.x,q.y];}),fill,stroke);
   }
   poly(points,fill,stroke){
     const c=this.ctx;
@@ -82,7 +82,7 @@ export class Renderer {
       return;
     }
     c.save();
-    if(distance(r,g.player)<2&&r.x+r.y>g.player.x+g.player.y)c.globalAlpha=.34;
+    if(distance(r,g.player)<2&&r.x+r.y*1.3660254>g.player.x+g.player.y*1.3660254)c.globalAlpha=.34;
     c.fillStyle='#0e1b2044';
     c.beginPath();
     c.ellipse(q.x+15,q.y+7,s*.9,s*.24,-.12,0,Math.PI*2);
@@ -141,7 +141,7 @@ export class Renderer {
   actor(actor, g, player = false) {
     drawActor(this, actor, g, player, this.animator.pose(actor, g.time));
   }
-  draw(g,buildType=null,pointer=null){
+  draw(g,buildType=null,pointer=null,buildEdge=0){
     const c=this.ctx;
     this.camera.x+=(g.player.x-this.camera.x)*.12;
     this.camera.y+=(g.player.y-this.camera.y)*.12;
@@ -153,7 +153,7 @@ export class Renderer {
     const minY=Math.max(0,Math.floor(Math.min(...corners.map(p=>p.y)))),maxY=Math.min(SIZE-1,Math.ceil(Math.max(...corners.map(p=>p.y))));
     for(let x=minX; x<=maxX; x++)for(let y=minY; y<=maxY; y++){
       const h=hash(x,y),water=terrain(x,y)==='water';
-      this.diamond(x,y,1.025,water?'#2d4e48':isTrail(x,y)?'#6a6949':palette[Math.floor(h*palette.length)]);
+      this.hex(x,y,1.01,water?'#2d4e48':isTrail(x,y)?'#6a6949':palette[Math.floor(h*palette.length)],'#152e232e');
       if(!water&&!isTrail(x,y)&&h>.6){
         const q=this.screen(x,y);
         c.strokeStyle='#8c9c6237';
@@ -167,7 +167,7 @@ export class Renderer {
       }
     }
     if(g.home&&(buildType||distance(g.player,g.home)<9)){
-      for(let x=g.home.x-5; x<=g.home.x+5; x++)for(let y=g.home.y-5; y<=g.home.y+5; y++)this.diamond(x,y,.99,'#b7ad7310',buildType?'#e2cf8240':null);
+      for(let x=g.home.x-5; x<=g.home.x+5; x++)for(let y=g.home.y-5; y<=g.home.y+5; y++)if(inHome(g,{x,y}))this.hex(x,y,.98,'#b7ad7310',buildType?'#e2cf8240':null);
       const q=this.screen(g.home.x,g.home.y-5);
       this.text(q.x,q.y-13,`ВАШ УЧАСТОК · ${homeValue(g)}`,'#d1c596',9);
     }
@@ -197,7 +197,7 @@ export class Renderer {
     objects.push({
       o:g.player,kind:'player'
     });
-    objects.sort((a,b)=>(a.o.x+a.o.y)-(b.o.x+b.o.y));
+    objects.sort((a,b)=>(a.o.x+a.o.y*1.3660254)-(b.o.x+b.o.y*1.3660254));
     for(const {
       o,kind
     }
@@ -244,35 +244,24 @@ export class Renderer {
       else this.text(q.x,q.y-45-(1-fx.life)*15,fx.text,fx.color,12);
     }
     if(buildType&&pointer){
-      const p=this.world(pointer.x,pointer.y),x=Math.round(p.x),y=Math.round(p.y);
-      this.diamond(x,y,.98,inHome(g,{
+      const p=this.world(pointer.x,pointer.y),{x,y}=hexRound(p.x,p.y);
+      this.hex(x,y,.98,inHome(g,{
         x,y
       })?'#c9d79555':'#e38c6e66','#eee2b1');
+      if(['wall','door','reinforce'].includes(buildType)){const[a,b]=edgePoints({x,y},buildEdge).map(p=>this.screen(p.x,p.y));this.poly([[a.x,a.y],[b.x,b.y],[b.x,b.y-30],[a.x,a.y-30]],'#d8cc9277','#f5e8b8');}
     }
   }
   map(canvas,g){
-    const c=canvas.getContext('2d'),s=5;
-    canvas.width=SIZE*s;
-    canvas.height=SIZE*s;
-    for(let x=0; x<SIZE; x++)for(let y=0; y<SIZE; y++){
-      c.fillStyle=terrain(x,y)==='water'?'#294a45':isTrail(x,y)?'#8e8255':palette[Math.floor(hash(x,y)*6)];
-      c.fillRect(x*s,y*s,s,s);
+    const c=canvas.getContext('2d'),unit=3.2;canvas.width=320;canvas.height=190;
+    const project=p=>{const v=toPlane(p.x,p.y);return{x:8+v.x*unit,y:7+v.y*unit};};
+    c.fillStyle='#152c25';c.fillRect(0,0,320,190);
+    for(let x=0;x<SIZE;x++)for(let y=0;y<SIZE;y++){
+      const vertices=corners(x,y);c.beginPath();vertices.forEach((v,i)=>{const q=project(v);if(i)c.lineTo(q.x,q.y);else c.moveTo(q.x,q.y);});c.closePath();
+      c.fillStyle=terrain(x,y)==='water'?'#294a45':isTrail(x,y)?'#8e8255':palette[Math.floor(hash(x,y)*6)];c.fill();
     }
-    const dot=(p,color,r)=>{
-      c.fillStyle=color;
-      c.beginPath();
-      c.arc(p.x*s,p.y*s,r,0,Math.PI*2);
-      c.fill();
-    };
-    if(g.home){
-      c.strokeStyle='#d8c48c';
-      c.strokeRect((g.home.x-5)*s,(g.home.y-5)*s,11*s,11*s);
-      dot(g.home,'#e2ca84',4);
-    }
-    for(const grave of g.graves)dot(grave,'#c397cb',4);
+    const dot=(p,color,r)=>{const q=project(p);c.fillStyle=color;c.beginPath();c.arc(q.x,q.y,r,0,Math.PI*2);c.fill();};
+    if(g.home)dot(g.home,'#e2ca84',5);for(const grave of g.graves)dot(grave,'#c397cb',3);
     for(const n of NOTES)dot(n,'#b6c1a1',2);
-    dot(BOSS_POS,g.bossDefeated?'#839573':'#ce8974',6);
-    dot(START,'#b9b795',3);
-    dot(g.player,'#f8edcb',5);
+    dot(BOSS_POS,g.bossDefeated?'#839573':'#ce8974',5);dot(START,'#b9b795',3);dot(g.player,'#f8edcb',4);
   }
 }

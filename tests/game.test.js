@@ -18,10 +18,8 @@ function room(g){
   =g.home;
   g.player.x=x;
   g.player.y=y;
-  for(let dx=-1; dx<=1; dx++)for(let dy=-1; dy<=1; dy++){
-    assert.ok(G.build(g,'floor',x+dx,y+dy));
-    if(dx||dy)assert.ok(G.build(g,dx===0&&dy===1?'door':'wall',x+dx,y+dy));
-  }
+  assert.ok(G.build(g,'floor',x,y));
+  for(let edge=0;edge<6;edge++)assert.ok(G.build(g,edge===0?'door':'wall',x,y,edge));
   return {
     x,y
   };
@@ -69,9 +67,9 @@ test('walls block movement while open doors allow it',()=>{
     x,y
   }
   =g.home;
-  assert.equal(G.canStand(g,x,y-1),false);
+  assert.equal(G.canStand(g,x,y-.5),false);
   const door=g.parts.find(p=>p.type==='door');
-  assert.equal(G.canStand(g,door.x,door.y),false);
+  assert.equal(G.canStand(g,door.x+.5,door.y),false);
   door.open=true;
   assert.ok(G.canStand(g,door.x,door.y));
 });
@@ -143,19 +141,10 @@ test('death drops retrievable inventory, keeps home/skills, resets boss, and per
   assert.equal(g.player.inv.sword,1);
   assert.equal(g.graves.length,0);
 });
-test('counter rewards timing, failed counter cannot be covered by holding block',()=>{
-  const g=G.createGame(),e=G.makeEnemy('draugr',g.player.x+1,g.player.y,'e');
-  assert.ok(G.parry(g));
-  G.damagePlayer(g,20,e);
-  assert.equal(g.player.hp,100);
-  assert.ok(e.stun>0);
-  g.player.parry=0;
-  g.player.blocking=true;
-  G.damagePlayer(g,20,e);
-  assert.equal(g.player.hp,80);
-  g.player.parryCooldown=0;
-  G.damagePlayer(g,20,e);
-  assert.ok(g.player.hp>=76&&g.player.hp<80);
+test('block reduces damage without reflecting or stunning the attacker',()=>{
+ const g=G.createGame(),e=G.makeEnemy('draugr',g.player.x+1,g.player.y,'e');
+ g.player.blocking=true;G.damagePlayer(g,20,e);assert.equal(g.player.hp,96);assert.equal(e.stun,0);
+ assert.equal('parry' in G,false);assert.equal('parry' in g.player,false);
 });
 test('archery consumes ammo; melee cannot hit through wall',()=>{
   const g=G.createGame();
@@ -221,6 +210,8 @@ test('boss victory persists and drops a trophy; no second boss is spawned',()=>{
   g.player.weapon='sword';
   e.hp=1;
   G.attack(g);
+  assert.equal(g.bossDefeated,false);
+  advance(g,.4);
   assert.ok(g.bossDefeated);
   assert.equal(g.player.inv.trophy,1);
   assert.ok(e.dead);
@@ -244,7 +235,7 @@ test('door closing and rebuilding a ruin cannot trap the player inside a solid t
   room(g);
   const door=g.parts.find(p=>p.type==='door');
   door.open=true;
-  g.player.x=door.x;
+  g.player.x=door.x+.5;
   g.player.y=door.y;
   G.interact(g);
   assert.ok(door.open);

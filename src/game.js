@@ -1,3 +1,5 @@
+import { HEX_DIRS, hexRound, hexDistance, metric, wallDistance, sameEdge, wallSegments, intersects } from './hex.js';
+import { MELEE, ENEMY_REACH, sweptHit, aimAngle } from './combat.js';
 // Pure simulation. Seconds of active play only; no wall-clock progression.
 export const SIZE = 64, DAY = 480, START = {
   x: 12, y: 43
@@ -109,14 +111,14 @@ export const NOTES = [
   x:15,y:41,title:'Камень у тропы',text:'Мы строили стены до заката. Звери чуяли нас, но дерево сдерживало их. Когда в доме застучали новые станки, из чащи пришли те, кому стены были по зубам.'
 },
 {
-  x:33,y:27,title:'Запись охотника',text:'Древний долго заносит ветвистую руку. Я однажды не отступил — встретил удар клинком. Кора треснула. На следующем взмахе я поспешил…'
+  x:33,y:27,title:'Запись охотника',text:'Древний долго заносит ветвистую руку. Я отступил, пока ветви падали, и ударил в обнажившуюся кору. На следующем взмахе я поспешил…'
 },
 {
   x:44,y:18,title:'Надпись на корнях',text:'Раненый лес не молчит. Когда сердце тускнеет, корни вздымаются кругом. Помни: шаг назад — не всегда бегство.'
 },
 ];
 export const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
-export const distance = (a,b) => Math.hypot(a.x-b.x,a.y-b.y);
+export const distance = (a,b) => metric(a,b);
 export function hash(x,y) {
   const n=Math.sin(x*127.1+y*311.7)*43758.5453;
   return n-Math.floor(n);
@@ -148,12 +150,12 @@ export function makeEnemy(type,x,y,id,raid=false) {
 }
 export function createGame() {
   const g={
-    version:1,time:0,player:{
+    version:1,grid:'hex',time:0,player:{
       ...START,hp:100,stamina:100,food:600,buff:0,foodBonus:0,inv:{
         wood:0,stone:0,berry:3
       },weapon:'hands',durability:100,skills:{
         sword:0,bow:0,guard:0
-      },focus:'sword',dead:false,attack:0,parry:0,parryCooldown:0,hurt:0,blocking:false,facing:{
+      },focus:'sword',dead:false,attack:0,hurt:0,blocking:false,facing:{
         x:0,y:-1
       }
     },home:null,parts:[],resources:[],enemies:[],graves:[],notes:[],storage:{
@@ -205,7 +207,9 @@ export function maxHp(g) {
   return 100+(g.player.buff>0?g.player.foodBonus:0);
 }
 export function inHome(g,p) {
-  return !!g.home&&Math.abs(p.x-g.home.x)<=5.5&&Math.abs(p.y-g.home.y)<=5.5;
+  if(!g.home)return false;
+  if(g.legacySquarePlot)return Math.abs(p.x-g.home.x)<=5.5&&Math.abs(p.y-g.home.y)<=5.5;
+  return hexDistance(hexRound(p.x,p.y),g.home)<=5;
 }
 export function homeValue(g) {
   return g.parts.reduce((n,p)=>n+PARTS[p.type].value,0);
@@ -216,29 +220,28 @@ export function invaders(g) {
 export function blocked(g,p) {
   return g.enemies.some(e=>!e.dead&&distance(e,p)<3);
 }
-export function solidAt(g,x,y) {
-  return g.parts.find(p=>p.hp>0&&p.x===Math.round(x)&&p.y===Math.round(y)&&PARTS[p.type].solid&&!(p.type==='door'&&p.open));
+export function solidAt(g,x,y,radius=.08) {
+  return g.parts.find(p=>p.hp>0&&PARTS[p.type].solid&&!(p.type==='door'&&p.open)&&wallDistance(p,{x,y})<radius);
 }
 export function canStand(g,x,y) {
-  if(terrain(x,y)==='water')return false;
-  const r=.24;
-  return ![[x-r,y-r],[x+r,y-r],[x-r,y+r],[x+r,y+r]].some(([a,b])=>solidAt(g,a,b));
+  return terrain(x,y)!=='water'&&!solidAt(g,x,y,.18);
 }
 export function move(g,p,dx,dy) {
-  if(canStand(g,p.x+dx,p.y))p.x+=dx;
-  if(canStand(g,p.x,p.y+dy))p.y+=dy;
+  if(canStand(g,p.x+dx,p.y)&&lineClear(g,p,{x:p.x+dx,y:p.y}))p.x+=dx;
+  if(canStand(g,p.x,p.y+dy)&&lineClear(g,p,{x:p.x,y:p.y+dy}))p.y+=dy;
 }
 export function sheltered(g,p=g.player) {
-  if(!inHome(g,p)||!g.parts.some(t=>t.type==='floor'&&t.x===Math.round(p.x)&&t.y===Math.round(p.y)))return false;
+  const cell=hexRound(p.x,p.y);
+  if(!inHome(g,p)||!g.parts.some(t=>t.type==='floor'&&t.x===cell.x&&t.y===cell.y))return false;
   const queue=[{
-    x:Math.round(p.x),y:Math.round(p.y)
+    x:cell.x,y:cell.y
   }],seen=new Set();
   for(let i=0; i<queue.length; i++) {
     const q=queue[i],key=`${q.x},${q.y}`;
     if(seen.has(key))continue;
     seen.add(key);
     if(!inHome(g,q))return false;
-    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]])if(!solidAt(g,q.x+dx,q.y+dy)&&!seen.has(`${q.x+dx},${q.y+dy}`))queue.push({
+    for(const [dx,dy] of HEX_DIRS)if(!solidAt(g,q.x+dx*.5,q.y+dy*.5)&&!seen.has(`${q.x+dx},${q.y+dy}`))queue.push({
       x:q.x+dx,y:q.y+dy
     });
   }
@@ -253,35 +256,30 @@ export function claimHome(g) {
   spend(g.player.inv,{
     wood:4
   });
-  g.home={
-    x:Math.round(g.player.x),y:Math.round(g.player.y)
-  };
+  g.home=hexRound(g.player.x,g.player.y);
   tell(g,'Участок отмечен. Начните с пола и замкнутого контура стен с дверью.');
   return true;
 }
-export function build(g,type,x,y) {
-  x=Math.round(x);
-  y=Math.round(y);
+export function build(g,type,x,y,edge=0) {
+  ({x,y}=hexRound(x,y));
   const d=PARTS[type];
-  if(!d||g.player.dead)return false;
+  if(!d||g.player.dead||(d.solid&&(!Number.isInteger(edge)||edge<0||edge>5)))return false;
   if(!inHome(g,{
     x,y
   }))return tell(g,'Строить можно только на своём участке.'),false;
   if(distance(g.player,{
     x,y
   })>7)return tell(g,'Подойдите ближе к месту строительства.'),false;
-  if(terrain(x,y)==='water'||(d.solid&&distance(g.player,{
-    x,y
-  })<.8)||g.enemies.some(e=>!e.dead&&distance(e,{
-    x,y
-  })<.8))return tell(g,'Место занято.'),false;
+  if(terrain(x,y)==='water'||(d.solid?(wallDistance({x,y,edge},g.player)<.2||g.enemies.some(e=>!e.dead&&wallDistance({x,y,edge},e)<.2)):g.enemies.some(e=>!e.dead&&distance(e,{x,y})<.5)))return tell(g,'Место занято.'),false;
+  const candidate={x,y,edge};
+  if(d.solid&&(!Number.isInteger(edge)||edge<0||edge>5))return false;
   const same=g.parts.filter(p=>p.x===x&&p.y===y);
-  if(same.some(p=>type==='floor'?p.type==='floor':p.type!=='floor'))return tell(g,'Эта клетка уже занята.'),false;
+  if(d.solid?g.parts.some(p=>PARTS[p.type].solid&&sameEdge(p,candidate)):same.some(p=>type==='floor'?p.type==='floor':p.type!=='floor'&&!PARTS[p.type].solid))return tell(g,'Эта клетка уже занята.'),false;
   if(type!=='floor'&&!same.some(p=>p.type==='floor'))return tell(g,'Сначала положите пол.'),false;
   if(!afford(g.player.inv,d.cost))return tell(g,'Не хватает материалов.'),false;
   spend(g.player.inv,d.cost);
   g.parts.push({
-    id:g.nextId++,type,x,y,hp:d.hp,open:false
+    id:g.nextId++,type,x,y,...(d.solid?{edge}:{}),hp:d.hp,open:false
   });
   for(const r of g.resources)if(r.x===x&&r.y===y)r.ready=g.time+300;
   g.effects.push({
@@ -291,7 +289,7 @@ export function build(g,type,x,y) {
 }
 export function repair(g,p) {
   if(!p||distance(g.player,p)>3)return false;
-  if(p.hp<=0&&PARTS[p.type].solid&&distance(g.player,p)<.75)return tell(g,'Отойдите от разрушенной стены перед ремонтом.'),false;
+  if(p.hp<=0&&PARTS[p.type].solid&&wallDistance(p,g.player)<.2)return tell(g,'Отойдите от разрушенной стены перед ремонтом.'),false;
   if(blocked(g,p))return tell(g,'Сначала отгоните монстров.'),false;
   if(!afford(g.player.inv,{
     wood:2
@@ -365,7 +363,8 @@ export function context(g) {
   })),...g.resources.filter(r=>r.ready<=g.time&&!g.parts.some(p=>p.x===r.x&&p.y===r.y)).map(o=>({
     ...o,kind:'resource',label:`Собрать: ${ITEMS[o.type]}`
   }))];
-  return candidates.filter(o=>distance(p,o)<2).sort((a,b)=>distance(a,p)-distance(b,p))[0]||null;
+  const proximity=o=>o.kind==='part'&&PARTS[o.type].solid?wallDistance(o,p):distance(o,p);
+  return candidates.filter(o=>proximity(o)<2).sort((a,b)=>proximity(a)-proximity(b)||(a.type==='door'?-1:b.type==='door'?1:0))[0]||null;
 }
 export function interact(g) {
   const c=context(g),p=g.player;
@@ -397,7 +396,7 @@ export function interact(g) {
   }
   const part=g.parts.find(v=>v.id===c.id);
   if(c.type==='door'){
-    if(part.open&&(distance(p,part)<.75||g.enemies.some(e=>!e.dead&&distance(e,part)<.75))){
+    if(part.open&&(wallDistance(part,p)<.2||g.enemies.some(e=>!e.dead&&wallDistance(part,e)<.2))){
       tell(g,'Освободите дверной проём перед закрытием.');
       return null;
     }
@@ -428,47 +427,32 @@ export function storeItems(g,withdraw=false) {
   return true;
 }
 export function attack(g) {
-  const p=g.player;
-  if(p.dead||p.attack>0||p.stamina<12)return false;
-  let weapon=p.inv[p.weapon]?p.weapon:'hands';
-  const range=weapon==='bow'?9:1.9;
+  const p=g.player,weapon=p.inv[p.weapon]?p.weapon:'hands',cost=weapon==='bow'?12:15;
+  if(p.dead||p.attack>0||p.stamina<cost)return false;
   if(weapon==='bow'&&!p.inv.arrow)return tell(g,'Нет стрел. Создайте их у верстака.'),false;
-  p.attack=weapon==='bow'?.65:.45;
-  p.strikeAt=g.time;
-  p.stamina-=weapon==='bow'?12:15;
-  if(weapon==='bow')add(p.inv,'arrow',-1);
-  const targets=g.enemies.filter(e=>!e.dead&&distance(e,p)<range&&lineClear(g,p,e)).sort((a,b)=>distance(a,p)-distance(b,p));
-  const e=targets[0];
-  g.effects.push({
-    x:p.x,y:p.y,text:weapon==='bow'?'↗':'⌒',color:'#f9df99',life:.35
-  });
-  if(!e)return true;
-  const aimDistance=Math.max(.001,distance(e,p));
-  p.facing={
-    x:(e.x-p.x)/aimDistance,y:(e.y-p.y)/aimDistance
-  };
-  const skill=p.skills[weapon]||0,damage=(weapon==='hands'?7:weapon==='bow'?19:24)*(1+skill*.016)*(e.stun>0?2:1);
-  hurtEnemy(g,e,damage);
-  if(weapon!=='hands')gainSkill(g,weapon,1.6);
-  if(weapon==='bow')g.effects.push({
-    x:p.x,y:p.y,to:{
-      x:e.x,y:e.y
-    },life:.25,color:'#ead39b'
-  });
+  const range=weapon==='bow'?9:MELEE[weapon].reach+.16;
+  const target=g.enemies.filter(e=>!e.dead&&distance(e,p)<=range&&lineClear(g,p,e)).sort((a,b)=>distance(a,p)-distance(b,p))[0];
+  if(target&&distance(p,target)>.001)p.facing={x:(target.x-p.x)/distance(p,target),y:(target.y-p.y)/distance(p,target)};
+  p.stamina-=cost;
+  if(weapon==='bow') {
+    p.attack=.65;p.strikeAt=g.time;add(p.inv,'arrow',-1);
+    if(target) {hurtEnemy(g,target,19*(1+p.skills.bow*.016));gainSkill(g,'bow',1.6);g.effects.push({x:p.x,y:p.y,to:{x:target.x,y:target.y},life:.25,color:'#ead39b'});}
+  } else {
+    const spec=MELEE[weapon];p.attack=spec.windup+spec.active+spec.recovery;
+    p.swing={weapon,started:g.time,angle:aimAngle(p.facing),hit:[]};
+  }
   return true;
+}
+function resolveSwing(g,fromTime) {
+  const p=g.player,swing=p.swing;if(!swing)return;
+  for(const e of g.enemies)if(!e.dead&&!swing.hit.includes(e.id)&&sweptHit(swing,p,e,fromTime,g.time)&&lineClear(g,p,e)) {
+    hurtEnemy(g,e,MELEE[swing.weapon].damage*(1+(p.skills[swing.weapon]||0)*.016));
+    swing.hit.push(e.id);if(swing.weapon!=='hands')gainSkill(g,swing.weapon,1.6);
+  }
+  if(p.attack<=0)p.swing=null;
 }
 function lineClear(g,a,b) {
-  const n=Math.ceil(distance(a,b)*3);
-  for(let i=1; i<n; i++)if(solidAt(g,a.x+(b.x-a.x)*i/n,a.y+(b.y-a.y)*i/n))return false;
-  return true;
-}
-export function parry(g) {
-  const p=g.player;
-  if(p.dead||p.parryCooldown>0||p.stamina<18)return false;
-  p.parry=.32;
-  p.parryCooldown=1.5;
-  p.stamina-=18;
-  return true;
+  return !g.parts.some(p=>p.hp>0&&PARTS[p.type].solid&&!(p.type==='door'&&p.open)&&wallSegments(p).some(([u,v])=>intersects(a,b,u,v)));
 }
 function hurtEnemy(g,e,n) {
   e.hp-=n;
@@ -494,18 +478,7 @@ function hurtEnemy(g,e,n) {
 export function damagePlayer(g,n,enemy=null) {
   const p=g.player;
   if(p.dead)return;
-  if(enemy&&p.parry>0){
-    enemy.stun=2.3;
-    enemy.phase='idle';
-    enemy.cooldown=2.3;
-    gainSkill(g,'guard',2);
-    tell(g,'Контрудар! Противник открыт.');
-    g.effects.push({
-      x:p.x,y:p.y,text:'ОТРАЖЕНО',color:'#aee7e1',life:1
-    });
-    return;
-  }
-  if(enemy&&p.blocking&&p.parryCooldown<=0&&p.stamina>=10){
+  if(enemy&&p.blocking&&p.stamina>=10){
     p.stamina-=Math.max(5,10-p.skills.guard*.05);
     n*=.2/(1+p.skills.guard*.01);
     gainSkill(g,'guard',1);
@@ -536,7 +509,7 @@ export function die(g) {
   });
   p.inv={
   };
-  p.weapon='hands';
+  p.weapon='hands';p.swing=null;
   for(const e of g.enemies)if(e.type==='boss'&&!e.dead){
     Object.assign(e,makeEnemy('boss',BOSS_POS.x,BOSS_POS.y,'boss'));
   }
@@ -547,7 +520,7 @@ export function respawn(g,home=false) {
   const bed=g.parts.find(p=>p.type==='bed'&&p.hp>0);
   const pos=home&&bed?bed:START;
   Object.assign(g.player,{
-    x:pos.x,y:pos.y,hp:100,stamina:100,food:300,buff:0,foodBonus:0,dead:false,attack:0,parry:0,parryCooldown:0
+    x:pos.x,y:pos.y,hp:100,stamina:100,food:300,buff:0,foodBonus:0,dead:false,attack:0
   });
   tell(g,home&&bed?'Вы вернулись домой.':'Вы вернулись к первому камню.');
   return true;
@@ -606,7 +579,7 @@ function updateEnemy(g,e,dt) {
     e.timer-=dt;
     if(e.timer>0)return;
     e.strikeAt=g.time;
-    const r=e.type==='boss'?(e.attackIndex%3===0&&e.hp<e.maxHp*.5?4.2:2.8):1.5;
+    const r=e.type==='boss'?(e.attackIndex%3===0&&e.hp<e.maxHp*.5?4.2:2.8):ENEMY_REACH[e.type];
     if(structure&&distance(e,structure)<2)damagePart(g,structure,e.damage*2);
     else if(!p.dead&&distance(e,p)<r&&lineClear(g,e,p))damagePlayer(g,e.damage*(e.type==='boss'&&e.hp<e.maxHp*.5?1.25:1),e);
     e.phase='idle';
@@ -615,7 +588,7 @@ function updateEnemy(g,e,dt) {
   }
   if(p.dead&&target===p)return;
   const td=distance(e,target);
-  if((target===p||structure)&&td<(e.type==='boss'?2.4:1.25)&&e.cooldown===0){
+  if((target===p||structure)&&td<(e.type==='boss'?2.4:ENEMY_REACH[e.type]-.1)&&e.cooldown===0){
     e.attackFacingX=target.x-e.x;
     e.attackFacingY=target.y-e.y;
     e.phase='windup';
@@ -649,13 +622,13 @@ export function tick(g,dt,input={
   dt=clamp(dt,0,.1);
   g.time+=dt;
   const p=g.player;
-  for(const k of ['attack','parry','parryCooldown','hurt','buff','food'])p[k]=Math.max(0,p[k]-dt);
-  p.blocking=!!input.block&&p.parryCooldown<=0;
+  for(const k of ['attack','hurt','buff','food'])p[k]=Math.max(0,p[k]-dt);
+  p.blocking=!!input.block;
   p.stamina=Math.min(100,p.stamina+dt*(p.blocking?5:20));
   p.hp=Math.min(p.hp,maxHp(g));
   if(p.food<=0)damagePlayer(g,dt*.7);
   if(p.dead)return;
-  const len=Math.hypot(input.x||0,input.y||0);
+  const len=metric({x:input.x||0,y:input.y||0},{x:0,y:0});
   if(len>0){
     const speed=(p.blocking?1.4:3.2)*dt;
     move(g,p,input.x/Math.max(1,len)*speed,input.y/Math.max(1,len)*speed);
@@ -685,6 +658,7 @@ export function tick(g,dt,input={
       startRaid(g);
     }
   }
+  resolveSwing(g,g.time-dt);
   for(const e of g.enemies){
     updateEnemy(g,e,dt);
     if(p.dead)break;
@@ -710,11 +684,11 @@ export function loadGame(raw) {
   const p=g?.player;
   if(g?.version!==1||!number(g.time)||!position(p)||!inventory(p.inv)||!inventory(g.storage)||!p.skills||!Object.keys(SKILLS).every(k=>number(p.skills[k],0,100)))fail();
   if(!number(p.hp,0,200)||!number(p.stamina,0,100)||!number(p.food)||!number(p.buff)||!number(p.foodBonus,0,100)||!number(p.durability,0,100)||!Object.hasOwn(SKILLS,p.focus)||!['hands','sword','bow'].includes(p.weapon)||typeof p.dead!=='boolean')fail();
-  for(const k of ['attack','parry','parryCooldown','hurt'])if(!number(p[k]))fail();
-  if(!p.facing||!number(p.facing.x,-1,1)||!number(p.facing.y,-1,1))fail();
+  for(const k of ['attack','hurt'])if(!number(p[k]))fail();
+  if(!p.facing||!number(p.facing.x,-2,2)||!number(p.facing.y,-2,2))fail();
   if(g.home!==null&&!position(g.home))fail();
-  if(!array(g.parts,250)||!array(g.resources,5000)||!array(g.enemies,500)||!array(g.graves,500)||!array(g.notes,NOTES.length))fail();
-  for(const part of g.parts)if(!Object.hasOwn(PARTS,part.type)||!position(part)||!number(part.hp,0,PARTS[part.type].hp)||!number(part.id))fail();
+  if(!array(g.parts,750)||!array(g.resources,5000)||!array(g.enemies,500)||!array(g.graves,500)||!array(g.notes,NOTES.length))fail();
+  for(const part of g.parts)if(!Object.hasOwn(PARTS,part.type)||!position(part)||!number(part.hp,0,PARTS[part.type].hp)||!number(part.id)||(part.edge!==undefined&&(!Number.isInteger(part.edge)||part.edge<0||part.edge>5)))fail();
   for(const r of g.resources)if(!position(r)||!['wood','stone','berry'].includes(r.type)||!number(r.ready)||typeof r.id!=='string')fail();
   for(const e of g.enemies){
     if(!Object.hasOwn(enemyData,e.type)||!position(e)||!position(e.origin)||!number(e.hp,-1000,1000)||!number(e.maxHp,1,1000)||!number(e.speed,0,10)||!number(e.damage,0,100)||!['idle','windup'].includes(e.phase)||typeof e.dead!=='boolean')fail();
@@ -723,6 +697,8 @@ export function loadGame(raw) {
   for(const grave of g.graves)if(!position(grave)||!inventory(grave.inv)||!number(grave.id))fail();
   if(!g.notes.every(n=>Number.isInteger(n)&&n>=0&&n<NOTES.length)||!number(g.nextId,1)||!number(g.raidDay)||!number(g.raidWarning,-1)||typeof g.raidPending!=='boolean'||typeof g.bossDefeated!=='boolean')fail();
   if(!g.stats||!['gathered','crafted','kills','nights'].every(k=>number(g.stats[k])))fail();
+  if(g.grid!=='hex'&&g.home)g.legacySquarePlot=true;g.grid='hex';
+  delete p.parry; delete p.parryCooldown; p.swing=null;
   g.events=[];
   g.effects=[];
   g.paused=false;

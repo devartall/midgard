@@ -303,12 +303,7 @@ canvas#world{
   left:12px;
   bottom:0
 }
-.parry{
-  width:70px;
-  height:70px;
-  right:30px;
-  top:0
-}
+
 .interact{
   width:76px;
   height:60px;
@@ -695,7 +690,7 @@ canvas#world{
     width:76px;
     height:76px
   }
-  .block,.parry{
+  .block{
     width:64px;
     height:64px
   }
@@ -704,9 +699,7 @@ canvas#world{
     height:56px;
     top:12px
   }
-  .parry{
-    right:23px
-  }
+
   .panel{
     max-height:92dvh;
     padding:20px

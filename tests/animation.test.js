@@ -18,7 +18,7 @@ test('gait follows actual travel, stops at rest, freezes on pause, and ignores t
 test('windup and strike poses follow simulation events for hero and all monsters', () => {
   for (const type of ['wolf', 'draugr', 'breaker', 'boss']) {
     const g = G.createGame();
-    const enemy = G.makeEnemy(type, g.player.x + 1, g.player.y, type);
+    const enemy = G.makeEnemy(type, g.player.x + .7, g.player.y, type);
     // A boss only engages inside its arena.
     if (type === 'boss') { Object.assign(g.player, G.BOSS_POS); enemy.x = g.player.x + 1; enemy.y = g.player.y; }
     g.enemies = [enemy];
@@ -31,7 +31,8 @@ test('windup and strike poses follow simulation events for hero and all monsters
     assert.ok(animator.pose(enemy, g.time).strike > 0);
   }
   const g = G.createGame(); G.attack(g);
-  assert.equal(new ActorAnimator().pose(g.player, g.time).strike, 1);
+  assert.equal(new ActorAnimator().pose(g.player, g.time).strike, 0);
+  G.tick(g,.1);G.tick(g,.05);assert.ok(new ActorAnimator().pose(g.player,g.time).strike>0);
 });
 
 test('a breaker striking a wall also emits an attack animation', () => {

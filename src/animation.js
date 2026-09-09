@@ -1,3 +1,5 @@
+import { MELEE, swingPose } from './combat.js';
+import { toPlane } from './hex.js';
 // Presentation state follows simulation time, so pause freezes every pose.
 // Weak keys avoid retaining actors after death, respawn or a new world.
 export class ActorAnimator {
@@ -11,7 +13,7 @@ export class ActorAnimator {
     }
     const dt = time - state.time;
     if (dt > 0) {
-      const dx = actor.x - state.x, dy = actor.y - state.y;
+      const {x:dx,y:dy} = toPlane(actor.x - state.x, actor.y - state.y);
       const travel = Math.hypot(dx, dy);
       // Do not animate a sprint across a teleport or an offscreen interval.
       if (dt <= .25 && travel < 1) {
@@ -21,14 +23,17 @@ export class ActorAnimator {
       } else state.pace = 0;
       state.x = actor.x; state.y = actor.y; state.time = time;
     }
+    const swing=swingPose(actor.swing,time);
     const elapsed = time - actor.strikeAt;
     state.strike = Number.isFinite(elapsed) && elapsed >= 0 && elapsed < .4 ? 1 - elapsed / .4 : 0;
     state.windup = actor.phase === 'windup' ? Math.max(0, Math.min(1, 1 - actor.timer / (actor.windupTime || 1))) : 0;
-    const look = actor.facing ? actor.facing.x - actor.facing.y : actor.attackFacingX - actor.attackFacingY;
+    const f=actor.facing?toPlane(actor.facing.x,actor.facing.y):toPlane(actor.attackFacingX||0,actor.attackFacingY||0);
+    const look=swing?Math.cos(actor.swing.angle)-Math.sin(actor.swing.angle):f.x-f.y;
+    if(swing){state.windup=swing.phase==='windup'?swing.age/MELEE[actor.swing.weapon].windup:0;state.strike=swing.phase==='active'?1-swing.progress:0;}
     if ((state.strike || state.windup || actor.blocking) && Number.isFinite(look) && Math.abs(look) > .01) state.facing = Math.sign(look);
     state.step = Math.sin(state.phase) * state.pace;
     state.bob = -Math.abs(Math.cos(state.phase)) * state.pace * 2;
-    state.lunge = Math.sin(state.strike * Math.PI) * 5;
+    state.lunge = actor.swing?0:Math.sin(state.strike * Math.PI) * 5;
     return state;
   }
 }
