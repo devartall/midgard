@@ -1,3 +1,4 @@
+import { bindPointer, installGestureGuard } from './input.js';
 import * as G from './game.js';
 import {
   Renderer
@@ -51,7 +52,10 @@ function button(text,action,cls=''){
 function title(text){
   return `<div class="panel-head"><h2 id="panelTitle">${text}</h2><button data-action="close" aria-label="Закрыть">×</button></div>`;
 }
+const pointerBindings=[];
+installGestureGuard([canvas, $('hud')]);
 function clearInput(){
+  for (const control of pointerBindings) control.reset();
   keys.clear();
   input.x=0;
   input.y=0;
@@ -281,70 +285,56 @@ $('rotateBuild').onclick=()=>{
   buildType=null;
   hud();
 };
-function bindAction(id,down,up=()=>{
-}){
-  const b=$(id);
-  b.addEventListener('pointerdown',e=>{
-    e.preventDefault();
-    if(game.paused||game.player.dead)return;
-    b.setPointerCapture(e.pointerId);
-    b.classList.add('pressed');
-    down();
-  });
-  for(const ev of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(ev,()=>{
-    b.classList.remove('pressed');
-    up();
-  });
+const canControl = () => !game.paused && !game.player.dead;
+function bindAction(id, down, up = () => {}) {
+  const element = $(id);
+  pointerBindings.push(bindPointer(element, {
+    enabled: canControl,
+    start: () => { element.classList.add('pressed'); down(); },
+    end: () => { element.classList.remove('pressed'); up(); },
+  }));
 }
-bindAction('attack',()=>G.attack(game));
-bindAction('parry',()=>G.parry(game));
-bindAction('interact',doInteract);
-bindAction('block',()=>touchBlock=true,()=>touchBlock=false);
-$('joystick').addEventListener('pointerdown',e=>{
-  if(game.paused)return;
-  e.preventDefault();
-  $('joystick').setPointerCapture(e.pointerId);
-  const r=$('joystick').getBoundingClientRect();
-  joy={
-    id:e.pointerId,cx:r.left+r.width/2,cy:r.top+r.height/2,x:0,y:0
-  };
-  updateJoy(e);
-});
-function updateJoy(e){
-  if(!joy||joy.id!==e.pointerId)return;
-  let x=(e.clientX-joy.cx)/42,y=(e.clientY-joy.cy)/42;
-  const len=Math.hypot(x,y);
-  if(len>1){
-    x/=len;
-    y/=len;
-  }
-  joy.x=x;
-  joy.y=y;
-  $('stick').style.transform=`translate(${x*30}px,${y*30}px)`;
+bindAction('attack', () => G.attack(game));
+bindAction('parry', () => G.parry(game));
+bindAction('interact', doInteract);
+bindAction('block', () => touchBlock = true, () => touchBlock = false);
+pointerBindings.push(bindPointer($('joystick'), {
+  enabled: canControl,
+  start: event => {
+    const rect = $('joystick').getBoundingClientRect();
+    joy = { id: event.pointerId, cx: rect.left + rect.width / 2, cy: rect.top + rect.height / 2, x: 0, y: 0 };
+    updateJoy(event);
+  },
+  move: updateJoy,
+  end: () => { joy = null; $('stick').style.transform = ''; },
+}));
+function updateJoy(event) {
+  if (!joy) return;
+  let x = (event.clientX - joy.cx) / 42, y = (event.clientY - joy.cy) / 42;
+  const length = Math.hypot(x, y);
+  if (length > 1) { x /= length; y /= length; }
+  joy.x = x; joy.y = y;
+  $('stick').style.transform = 'translate(' + x * 30 + 'px,' + y * 30 + 'px)';
 }
-$('joystick').addEventListener('pointermove',updateJoy);
-for(const ev of ['pointerup','pointercancel','lostpointercapture'])$('joystick').addEventListener(ev,()=>{
-  joy=null;
-  $('stick').style.transform='';
+// Mouse hover still previews placement without requiring a pressed button.
+canvas.addEventListener('pointermove', event => {
+  if (event.pointerType === 'mouse') pointer = { x: event.clientX, y: event.clientY };
 });
-canvas.addEventListener('pointermove',e=>pointer={
-  x:e.clientX,y:e.clientY
-});
-canvas.addEventListener('pointerdown',e=>{
-  if(game.paused||game.player.dead)return;
-  pointer={
-    x:e.clientX,y:e.clientY
-  };
-  if(buildType){
-    const p=renderer.world(e.clientX,e.clientY);
-    if(buildType==='remove'){
-      const part=game.parts.filter(o=>o.x===Math.round(p.x)&&o.y===Math.round(p.y)).sort((a,b)=>(a.type==='floor')-(b.type==='floor'))[0];
-      if(part)G.removePart(game,part.id);
-    }
-    else G.build(game,buildType,p.x,p.y);
+pointerBindings.push(bindPointer(canvas, {
+  enabled: canControl,
+  start: event => {
+    pointer = { x: event.clientX, y: event.clientY };
+    if (!buildType) return;
+    const point = renderer.world(event.clientX, event.clientY);
+    if (buildType === 'remove') {
+      const part = game.parts.filter(o => o.x === Math.round(point.x) && o.y === Math.round(point.y))
+        .sort((a, b) => (a.type === 'floor') - (b.type === 'floor'))[0];
+      if (part) G.removePart(game, part.id);
+    } else G.build(game, buildType, point.x, point.y);
     safeSave();
-  }
-});
+  },
+  move: event => { pointer = { x: event.clientX, y: event.clientY }; },
+}));
 window.addEventListener('keydown',e=>{
   if(['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName))return;
   const k=e.key.toLowerCase();

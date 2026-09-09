@@ -6,7 +6,7 @@
     "dev": "node tools/server.mjs",
     "start": "node tools/server.mjs",
     "test": "node --test",
-    "check": "node --check src/game.js && node --check src/render.js && node --check src/main.js && node --check tools/server.mjs",
+    "check": "node --check src/game.js && node --check src/render.js && node --check src/main.js && node --check src/input.js && node --check src/animation.js && node --check src/art.js && node --check tools/server.mjs",
     "build": "node tools/build.mjs"
   }
 }

@@ -69,3 +69,27 @@ test('renderer produces finite drawing coordinates for day, night, buildings, co
   assert.ok(Math.abs(back.y-22)<1e-9);
   assert.ok(canvas.calls>1000);
 });
+
+test('all detailed actors and buildings draw finite geometry through movement and attack states', () => {
+  globalThis.innerWidth=844; globalThis.innerHeight=390; globalThis.devicePixelRatio=2;
+  const r=new Renderer(canvasMock()), g=G.createGame();
+  const actors=[g.player,...['wolf','draugr','breaker','boss'].map(type=>G.makeEnemy(type,12,43,type))];
+  for (const actor of actors) {
+    const player=actor===g.player;
+    r.actor(actor,g,player);
+    for(let step=0;step<8;step++) {
+      g.time+=.1; actor.x+=.15; actor.y-=.05;
+      actor.phase=step<4?'windup':'idle'; actor.windupTime=.8; actor.timer=Math.max(.1,.8-step*.1);
+      if(step===4)actor.strikeAt=g.time;
+      r.actor(actor,g,player);
+    }
+  }
+  for (const type of Object.keys(G.PARTS)) for (const hp of [G.PARTS[type].hp,10,0]) {
+    r.part({type,x:12,y:43,hp,open:false},g);
+    if(type==='door')r.part({type,x:12,y:43,hp,open:true},g);
+  }
+  for(const weapon of ['hands','sword','bow']) {
+    g.player.weapon=weapon; g.player.inv[weapon]=1; g.player.strikeAt=g.time;
+    r.actor(g.player,g,true);
+  }
+});

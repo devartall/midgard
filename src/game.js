@@ -434,6 +434,7 @@ export function attack(g) {
   const range=weapon==='bow'?9:1.9;
   if(weapon==='bow'&&!p.inv.arrow)return tell(g,'Нет стрел. Создайте их у верстака.'),false;
   p.attack=weapon==='bow'?.65:.45;
+  p.strikeAt=g.time;
   p.stamina-=weapon==='bow'?12:15;
   if(weapon==='bow')add(p.inv,'arrow',-1);
   const targets=g.enemies.filter(e=>!e.dead&&distance(e,p)<range&&lineClear(g,p,e)).sort((a,b)=>distance(a,p)-distance(b,p));
@@ -604,6 +605,7 @@ function updateEnemy(g,e,dt) {
   if(e.phase==='windup'){
     e.timer-=dt;
     if(e.timer>0)return;
+    e.strikeAt=g.time;
     const r=e.type==='boss'?(e.attackIndex%3===0&&e.hp<e.maxHp*.5?4.2:2.8):1.5;
     if(structure&&distance(e,structure)<2)damagePart(g,structure,e.damage*2);
     else if(!p.dead&&distance(e,p)<r&&lineClear(g,e,p))damagePlayer(g,e.damage*(e.type==='boss'&&e.hp<e.maxHp*.5?1.25:1),e);
@@ -614,6 +616,8 @@ function updateEnemy(g,e,dt) {
   if(p.dead&&target===p)return;
   const td=distance(e,target);
   if((target===p||structure)&&td<(e.type==='boss'?2.4:1.25)&&e.cooldown===0){
+    e.attackFacingX=target.x-e.x;
+    e.attackFacingY=target.y-e.y;
     e.phase='windup';
     e.attackIndex++;
     e.timer=e.type==='boss'?(e.hp<e.maxHp*.5&&e.attackIndex%3===0?1.4:e.hp<e.maxHp*.5?.8:1.1):e.type==='wolf'?.55:.85;
@@ -625,6 +629,9 @@ function updateEnemy(g,e,dt) {
     const barrier=solidAt(g,e.x+dx*4,e.y+dy*4);
     if(barrier){
       if(e.type==='breaker'&&e.cooldown===0){
+        e.strikeAt=g.time;
+        e.attackFacingX=barrier.x-e.x;
+        e.attackFacingY=barrier.y-e.y;
         damagePart(g,barrier,35);
         e.cooldown=1;
       }
