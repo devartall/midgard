@@ -30,22 +30,22 @@ export function drawFloor(r, p) {
 }
 
 function thinWall(r,p,g) {
-  const c=r.ctx,h=r.scale*(p.type==='reinforce'?1.35:1.18),stone=p.type==='reinforce';
+  const c=r.ctx,h=r.scale*1.18,stone=p.type==='reinforce';
   for(const edge of wallEdges(p)) {
     const [u,v]=edgePoints(p,edge),a=r.screen(u.x,u.y),b=r.screen(v.x,v.y);
-    let end=b;
-    if(p.type==='door'&&p.open)end={x:a.x+(b.x-a.x)*.35-(b.y-a.y)*.8,y:a.y+(b.y-a.y)*.35+(b.x-a.x)*.2};
-    r.poly([[a.x,a.y],[end.x,end.y],[end.x,end.y-h],[a.x,a.y-h]],stone?'#738776':'#987b4e','#c0a577');
-    r.poly([[a.x,a.y-h],[end.x,end.y-h],[end.x+2,end.y-h-2],[a.x+2,a.y-h-2]],stone?'#b6beac':'#dbc294');
-    for(let i=1;i<5;i++){
-      const t=i/5,x=a.x+(end.x-a.x)*t,y=a.y+(end.y-a.y)*t;
-      if(!stone)line(c,[[x,y],[x,y-h]],'#514630');
-      else line(c,[[a.x,a.y-h*t],[end.x,end.y-h*t]],'#465d50');
+    const end=p.type==='door'&&p.open?{x:a.x+(b.x-a.x)*.35-(b.y-a.y)*.8,y:a.y+(b.y-a.y)*.35+(b.x-a.x)*.2}:b;
+    r.poly([[a.x,a.y],[end.x,end.y],[end.x,end.y-h],[a.x,a.y-h]],stone?'#667b77':'#8c7149','#66553b');
+    // Horizontal log courses reach the shared vertex: one continuous wall, no door frames.
+    for(let row=1;row<6;row++){
+      const z=h*row/6;line(c,[[a.x,a.y-z],[end.x,end.y-z]],stone?'#384d4d':'#52412d',2);
+      line(c,[[a.x,a.y-z-1],[end.x,end.y-z-1]],stone?'#acb6a35a':'#ddbb7a55',1);
+      if(stone){const t=row%2?.33:.67,x=a.x+(end.x-a.x)*t,y=a.y+(end.y-a.y)*t;line(c,[[x,y-z],[x,y-z-h/6]],'#3c5050');}
     }
-    for(const q of [a,b])line(c,[[q.x,q.y],[q.x,q.y-h-2]],stone?'#9eac96':'#b59b69',3);
+    line(c,[[a.x,a.y-h],[end.x,end.y-h]],stone?'#b0b8a5':'#c7a36c',4);
     if(p.type==='door'){
-      line(c,[[a.x,a.y-h+5],[end.x,end.y-4]],'#cfb378',2);
-      oval(c,a.x+(end.x-a.x)*.8,a.y+(end.y-a.y)*.8-h*.4,2,2,'#ead091');
+      for(const q of [a,b])line(c,[[q.x,q.y],[q.x,q.y-h-2]],'#d0ae73',3);
+      line(c,[[a.x,a.y-h+4],[end.x,end.y-4]],'#ceae71',3);
+      oval(c,a.x+(end.x-a.x)*.8,a.y+(end.y-a.y)*.8-h*.4,2,2,'#e5c994');
     }
   }
 }

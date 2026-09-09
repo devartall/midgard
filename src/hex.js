@@ -41,3 +41,10 @@ export function intersects(a,b,u,v) {
   const x=cross(p,q,r),y=cross(p,q,s),z=cross(r,s,p),w=cross(r,s,q);
   return (x*y<0&&z*w<0)||Math.min(pointSegment(a,u,v),pointSegment(b,u,v),pointSegment(u,a,b),pointSegment(v,a,b))<.06;
 }
+
+export function segmentDistance(a,b,u,v){
+  const p=toPlane(a.x,a.y),q=toPlane(b.x,b.y),r=toPlane(u.x,u.y),s=toPlane(v.x,v.y);
+  const cross=(a,b,c)=>(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
+  if(cross(p,q,r)*cross(p,q,s)<0&&cross(r,s,p)*cross(r,s,q)<0)return 0;
+  return Math.min(pointSegment(a,u,v),pointSegment(b,u,v),pointSegment(u,a,b),pointSegment(v,a,b));
+}

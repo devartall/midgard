@@ -20,12 +20,12 @@ export function installGestureGuard(surfaces) {
 // Exactly one pointer owns a control. Other fingers can own other controls.
 export function bindPointer(element, { enabled = () => true, start, move, end }) {
   let owner = null;
-  function release() {
+  function release(event = null) {
     if (owner === null) return;
     const id = owner;
     owner = null; // releasePointerCapture may synchronously deliver lost capture.
     if (element.hasPointerCapture?.(id)) element.releasePointerCapture(id);
-    end?.();
+    end?.(event);
   }
   element.addEventListener('pointerdown', event => {
     if (event.pointerType === 'mouse' && event.button !== 0) return;
@@ -44,7 +44,7 @@ export function bindPointer(element, { enabled = () => true, start, move, end })
     element.addEventListener(name, event => {
       if (event.pointerId !== owner) return;
       preventGesture(event);
-      release();
+      release(event);
     });
   }
   return { reset: release };

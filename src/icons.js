@@ -1,0 +1,37 @@
+// Hand-drawn SVG pictograms share a forged-metal outline; no network assets.
+const paths={
+ wood:'M8 23 21 8 29 15 15 29Z M21 8 18 6 5 21 8 23 M12 23l9-10 M18 24l5-6',
+ stone:'m5 23 4-13 13-5 8 10-5 13H12Z M9 10l7 8 14-3 M16 18l-4 10',
+ berry:'M16 15c-4-8 4-10 8-9-1 5-5 8-8 9 M16 15 13 7 M8 16a5 5 0 1 0 1 10 5 5 0 0 0-1-10 M19 17a5 5 0 1 0 1 10 5 5 0 0 0-1-10',
+ meat:'M10 21c-12-12 9-22 17-13 9 10-4 20-12 13l-6 7-5-4Z M15 12c3-6 12-3 7 3-4 5-10 1-7-3',
+ hide:'M10 4 16 7 22 4l7 6-6 7 5 11-12-4L4 28l5-11-6-7Z M13 11l3 4-3 5',
+ resin:'M16 3C14 10 6 16 6 22a10 10 0 0 0 20 0c0-6-8-12-10-19Z M12 19c-3 6 1 8 4 8',
+ sword:'m8 25 15-19 6-3-1 7-17 17 M6 20l10 9 M4 29l5-5',
+ bow:'M9 3c23 10 23 16 0 27l5-14Z M4 16h26m-5-4 5 4-5 4',
+ arrow:'M6 28 26 6m-9 0 10-3-2 10 M5 21l6 6 M3 25l4 4',
+ armor:'m10 4 6 4 6-4 8 7-5 6-3-2v14H10V15l-3 2-5-6Z M16 10v15 M11 20h10',
+ roast:'M7 21C-1 6 21 3 26 13s-8 16-14 10l-5 6-4-4Z M12 11l-3 5m10-6-3 7',
+ stew:'M4 17h24c-1 15-23 15-24 0Z M9 28h15 M10 13c-5-4 4-5 0-9m7 9c-5-4 4-5 0-9m7 10 5-10',
+ potion:'M12 3h8v7l7 11c5 13-27 13-22 0l7-11Z M11 7h10 M8 21h17 M16 18v9m-4-5h8',
+ trophy:'m16 5 5 9 9 2-7 6-1 8-6-4-6 4-1-8-7-6 9-2Z',
+ floor:'m2 16 14-8 14 8-14 9Z M8 13l14 9 M15 9l14 8 M2 20l14 9 14-9',
+ wall:'M3 9h26v19H3Z M3 15h26M3 22h26 M10 9v6m11-6v6M15 15v7M9 22v6m13-6v6',
+ door:'M6 29V4h20v25 M10 28V8h12v20 M17 19h2 M3 29h26',
+ fire:'M16 3c3 9 12 12 8 21-4 10-23 4-18-6l6-8c-1 6 3 8 4 5Z M5 29l24-3M5 26l24 3',
+ bench:'M2 12h28v5H2Z M6 17v12m20-12v12 M8 5h9v7M22 7l6-3M22 7v5',
+ chest:'M4 14V9c0-7 24-7 24 0v5 M3 14h26v15H3Z M10 4v10m12-10v10 M13 13h6v8h-6Z M7 22v4m18-4v4',
+ bed:'M4 12v18M28 12v18M4 25h24M4 14h24v11 M8 14v6h6v-6 M18 14v11',
+ kitchen:'M3 12h26 M7 12c-5 22 23 22 18 0 M6 8c0-7 20-7 20 0 M12 14v3m8-3v3 M9 29l-2 2m16-2 2 2',
+ reinforce:'M3 8h26v21H3Z M3 15h26M3 23h26 M11 8v7m11-7v7M16 15v8 M9 23v6m14-6v6 M6 4h20',
+ decor:'M13 30V5l3-3 3 3v25 M7 12l9-6 9 6-9 5Z M7 22l9-6 9 6-9 5Z',
+ bag:'M7 10h18l4 19H3Z M11 10V6c0-5 10-5 10 0v4 M10 17h12v8H10Z',
+ craft:'M7 3 3 9l9 6 4-7Z M13 12l14 16 M24 4l5 5-15 16-6 4 2-7Z',
+ guard:'m16 3 12 5-2 14-10 8-10-8L4 8Z M16 7v17M8 13h16',
+ skills:'M16 3v27M16 7l-8 6 8 5 8-6-8-5 M16 22l-7-4m7 8 7-6',
+ journal:'M6 4h20v25H6Z M3 8h6M3 15h6M3 23h6 M13 9h8m-8 6h8m-8 6h5',
+ map:'m3 7 8-4 10 4 8-4v23l-8 4-10-4-8 4Z M11 3v23M21 7v23',
+ hand:'M7 18V9c0-3 4-3 4 0v8-12c0-3 4-3 4 0v11-13c0-3 4-3 4 0v13-11c0-3 4-3 4 0v13l4-6c2-2 5 0 3 3l-6 12H11l-7-9c-2-3 0-5 3-3Z',
+};
+export function icon(name,cls=''){
+ return `<svg class="icon ${cls}" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name]||paths.decor}"/></svg>`;
+}

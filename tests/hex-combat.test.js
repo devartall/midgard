@@ -17,7 +17,7 @@ test('thin walls block crossing their edge, leave cell interiors free, and canno
  G.build(g,'floor',x,y);G.build(g,'floor',x+1,y);assert.ok(G.build(g,'wall',x,y,0));
  assert.ok(G.canStand(g,x,y));assert.ok(G.canStand(g,x+1,y));assert.equal(G.canStand(g,x+.5,y),false);
  assert.equal(G.build(g,'wall',x+1,y,3),false);
- G.move(g,g.player,1,0);assert.equal(g.player.x,x);
+ G.move(g,g.player,1,0);assert.ok(g.player.x<x+.33);assert.ok(G.canStand(g,g.player.x,g.player.y));
 });
 test('blade cannot hit outside its physical reach or behind its directed sweep',()=>{
  const swing={weapon:'sword',started:0,angle:0,hit:[]},origin={x:0,y:0};

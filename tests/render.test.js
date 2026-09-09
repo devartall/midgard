@@ -93,3 +93,11 @@ test('all detailed actors and buildings draw finite geometry through movement an
     r.actor(g.player,g,true);
   }
 });
+
+test('lake, mountain and multi-cell construction previews produce finite drawing geometry',()=>{
+  const r=new Renderer(canvasMock()),g=G.createGame();
+  for(const pos of [{x:23,y:19},{x:31,y:43},{x:39,y:39}]){Object.assign(g.player,pos);r.camera={...pos};r.draw(g);r.map(canvasMock(),g);}
+  g.home={...G.START};Object.assign(g.player,G.START);r.camera={...G.START};g.player.inv.wood=100;
+  r.draw(g,'floor',null,null,[{type:'floor',x:12,y:43},{type:'floor',x:13,y:43}]);
+  r.draw(g,'wall',null,null,[{type:'wall',x:12,y:43,edge:0},{type:'wall',x:12,y:43,edge:1}]);
+});

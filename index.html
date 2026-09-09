@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#14241f"><meta name="apple-mobile-web-app-capable" content="yes">
-<title>Лесной очаг — лесная проверка</title><link rel="stylesheet" href="style.css">
+<title>Мидгард — Сага очага</title><link rel="stylesheet" href="style.css">
 </head>
 <body>
 <canvas id="world" aria-label="Изометрический лесной мир"></canvas>
 <div id="hud">
   <header class="topbar">
-    <div class="identity"><span class="rune">ᛟ</span><div><strong>ЛЕСНОЙ ОЧАГ</strong><small>Лесная проверка · соло</small></div></div>
+    <div class="identity"><span class="rune">ᛟ</span><div><strong>МИДГАРД</strong><small>Сага очага · соло</small></div></div>
     <div class="timebox"><span id="sun">☀</span><div><strong id="clock">День 1</strong><small id="phase">Утро · лес пробуждается</small></div></div>
     <div class="top-actions"><button id="mapBtn" title="Карта (M)" aria-label="Карта">◇</button><button id="pauseBtn" title="Пауза (Esc)" aria-label="Пауза">Ⅱ</button></div>
   </header>
@@ -19,13 +19,14 @@
   <div id="bossHud" class="boss-hud hidden"><small>ДРЕВНИЙ ХРАНИТЕЛЬ</small><div><i id="bossFill"></i></div><span id="bossPhase"></span></div>
   <div id="toast" role="status"></div>
   <div id="buildBanner" class="build-banner hidden"><span id="buildHint"></span><button id="turnBuild">Повернуть ↻</button><button id="rotateBuild">Готово</button></div>
+  <div id="quickbar" class="quickbar" role="group" aria-label="Быстрый доступ — клавиши 1–9"></div>
   <div class="bottom-nav"><button data-panel="bag">▤ <span>Сумка</span></button><button data-panel="build">⌂ <span>Строить</span></button><button data-panel="craft">⚒ <span>Крафт</span></button><button data-panel="skills">ᚱ <span>Навыки</span></button><button data-panel="journal">≡ <span>Находки</span></button></div>
   <div id="joystick" aria-label="Движение"><div class="stick-ring"></div><div id="stick"></div><small>ДВИЖЕНИЕ</small></div>
   <div class="combat"><button id="interact" class="action interact">Взять <small>E</small></button><button id="block" class="action block">Блок <small>удерживать · Q</small></button><button id="attack" class="action attack">Удар <small>Пробел</small></button></div>
   <div class="desktop-hint">WASD — движение · E — действие · Q — блок · B — строительство</div>
 </div>
 <div id="overlay" class="overlay hidden"><section id="panel" class="panel" role="dialog" aria-modal="true" aria-labelledby="panelTitle"></section></div>
-<div id="portrait"><span>↻</span><h2>Поверните телефон</h2><p>Лесной очаг рассчитан на горизонтальный экран<br>и управление двумя руками.</p></div>
+<div id="portrait"><span>↻</span><h2>Поверните телефон</h2><p>Мидгард рассчитан на горизонтальный экран<br>и управление двумя руками.</p></div>
 <script type="module" src="src/main.js"></script>
 </body>
 </html>

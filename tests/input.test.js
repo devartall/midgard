@@ -13,7 +13,7 @@ class Surface {
   hasPointerCapture(id) { return this.captures.has(id); }
   releasePointerCapture(id) { this.captures.delete(id); this.send('lostpointercapture', { pointerId: id }); }
   send(name, data = {}) {
-    const event = { pointerId: 1, pointerType: 'touch', button: 0, cancelable: true, defaultPrevented: false,
+    const event = { type:name, pointerId: 1, pointerType: 'touch', button: 0, cancelable: true, defaultPrevented: false,
       preventDefault() { this.defaultPrevented = true; }, ...data };
     for (const { listener } of this.listeners.get(name) || []) listener(event);
     return event;
@@ -68,4 +68,10 @@ test('WebKit fallback cancels game gestures without suppressing HUD taps or touc
   assert.equal(hud.send('touchstart', { target: { closest: () => null } }).defaultPrevented, false);
   assert.equal(menu.listeners.size, 0);
   assert.equal(world.send('touchmove', { cancelable: false }).defaultPrevented, false);
+});
+
+test('construction release distinguishes commit from cancellation, lost capture and pause reset',()=>{
+  const surface=new Surface(),results=[];const binding=bindPointer(surface,{end:event=>results.push(event?.type||'reset')});
+  for(const name of ['pointerup','pointercancel','lostpointercapture']){surface.send('pointerdown');surface.send(name);}
+  surface.send('pointerdown');binding.reset();assert.deepEqual(results,['pointerup','pointercancel','lostpointercapture','reset']);
 });

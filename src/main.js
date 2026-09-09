@@ -1,3 +1,5 @@
+import { icon } from './icons.js';
+import { placementPlan, planCost } from './construction.js';
 import { hexRound, fromPlane, wallDistance } from './hex.js';
 import { bindPointer, installGestureGuard } from './input.js';
 import * as G from './game.js';
@@ -7,7 +9,7 @@ import {
 from './render.js';
 const $=id=>document.getElementById(id),canvas=$('world'),renderer=new Renderer(canvas);
 const SAVE_KEY='forest-hearth-v1';
-let game=G.createGame(),started=false,panelName=null,buildType=null,buildEdge=0,pointer=null,joy=null,lastFrame=0,lastHud=0,saveClock=0,lastEvent=0,toastUntil=0,saveError='',knownSave=false;
+let game=G.createGame(),started=false,panelName=null,buildType=null,buildEdge=null,buildDrag=null,selectedItem=null,barSignature='',pointer=null,joy=null,lastFrame=0,lastHud=0,saveClock=0,lastEvent=0,toastUntil=0,saveError='',knownSave=false;
 const input={
   x:0,y:0,block:false
 },keys=new Set();
@@ -42,13 +44,26 @@ function escape(s){
   [c]));
 }
 function costText(cost){
-  return Object.entries(cost).map(([k,v])=>`${G.ITEMS[k]} ${v}`).join(' · ');
+  return Object.entries(cost).map(([k,v])=>`<span class="resource-chip" title="${G.ITEMS[k]}">${icon(k)} ${v}</span>`).join(' · ');
 }
 function stock(inv=game.player.inv){
-  return Object.entries(inv).filter(([,v])=>v>0).map(([k,v])=>`${G.ITEMS[k]||k}: ${v}`).join(' · ')||'Пока пусто';
+  return Object.entries(inv).filter(([,v])=>v>0).map(([k,v])=>`<span class="resource-chip" title="${G.ITEMS[k]||k}">${icon(k)} ${v}</span>`).join(' · ')||'Пока пусто';
 }
 function button(text,action,cls=''){
   return `<button class="${cls}" data-action="${action}">${text}</button>`;
+}
+function inventoryGrid(inv,selectable=false){
+  const entries=Object.entries(inv).filter(([,n])=>n>0);
+  return '<div class="inventory-grid">'+entries.map(([k,n])=>`<button class="item-slot ${selectedItem===k&&selectable?'selected':''} ${game.player.weapon===k?'equipped':''}" ${selectable?`data-action="select:${k}"`:'disabled'} title="${G.ITEMS[k]}" aria-label="${G.ITEMS[k]}, ${n}">${icon(k)}<span>${G.ITEMS[k]}</span><b>${n}</b>${game.player.weapon===k?'<i>В руках</i>':''}</button>`).join('')+Array.from({length:Math.max(0,24-entries.length)},()=>'<div class="item-slot empty" aria-hidden="true">·</div>').join('')+'</div>';
+}
+function itemDetails(k){
+  if(!k||!game.player.inv[k])return '<aside class="item-detail"><div class="detail-emblem">ᛉ</div><h3>Снаряжение странника</h3><p>Выберите предмет, чтобы узнать его свойства, использовать или назначить на пояс.</p><small>Броня действует, пока находится в сумке.</small></aside>';
+  const f=G.FOODS[k],usable=G.usableItem(k);
+  return `<aside class="item-detail">${icon(k,'detail-icon')}<small>${f?'ПРИПАСЫ':k==='potion'?'АЛХИМИЯ':usable?'ОРУЖИЕ':'МАТЕРИАЛЫ'}</small><h3>${G.ITEMS[k]}</h3><p>${f?`Сытость: ${f.sat/60} мин.${f.buff?` +${f.hp} к максимуму здоровья на ${f.buff/60} мин.`:''}`:k==='potion'?'Восстанавливает 40 здоровья. Между применениями — 20 секунд. Варится у очага из 3 ягод и 1 смолы.':k==='sword'?'Направленный взмах. Подойдите на длину клинка.':k==='bow'?'Дальний бой. Каждый выстрел расходует стрелу.':k==='armor'?`Защищает от ударов. Прочность: ${Math.floor(game.player.durability)}%.`:'Пригодится для строительства и ремесла.'}</p>${usable?button(f?'Съесть':k==='potion'?'Выпить':'Взять в руки',`use:${k}`,'primary'):''}${k==='armor'?button('Ремонт · 2 шкуры','armor-repair'):''}${usable?'<h4>Назначить на пояс</h4><div class="slot-assign">'+Array.from({length:9},(_,i)=>button(i+1,`assign:${k}:${i}`,game.player.quickbar[i]===k?'selected':'')).join('')+'</div><small>Цифры 1–9 или касание ячейки в игре.</small>':''}</aside>`;
+}
+function renderQuickbar(){
+  const p=game.player,signature=JSON.stringify([p.quickbar,p.inv,p.weapon,Math.ceil(p.potionCooldown)]);if(signature===barSignature)return;barSignature=signature;
+  $('quickbar').innerHTML=p.quickbar.map((k,i)=>`<button data-slot="${i}" class="quick-slot ${k===p.weapon?'equipped':''} ${!p.inv[k]?'depleted':''}" title="${k?G.ITEMS[k]:'Пустая ячейка'} (${i+1})" aria-label="${k?G.ITEMS[k]:'Пустая ячейка'}, ${i+1}"><kbd>${i+1}</kbd>${k?icon(k):'<span class="empty-rune">·</span>'}<b>${k&&p.inv[k]||''}</b>${k==='potion'&&p.potionCooldown>0?`<em>${Math.ceil(p.potionCooldown)}с</em>`:''}</button>`).join('');
 }
 function title(text){
   return `<div class="panel-head"><h2 id="panelTitle">${text}</h2><button data-action="close" aria-label="Закрыть">×</button></div>`;
@@ -63,6 +78,7 @@ function clearInput(){
   input.block=false;
   touchBlock=false;
   joy=null;
+  buildDrag=null;
   $('stick').style.transform='';
   document.querySelectorAll('.pressed').forEach(b=>b.classList.remove('pressed'));
 }
@@ -86,30 +102,30 @@ function renderPanel(){
   const p=game.player;
   let html='';
   if(panelName==='intro'){
-    html=`<div class="intro"><span class="seal">ᛟ</span><div class="eyebrow">ОДИНОЧНОЕ ПРИКЛЮЧЕНИЕ</div><h1 id="panelTitle">Лесной очаг</h1><p class="lead">Лес помнит тех, кто вошёл.<br>Постройте место, в которое сможете вернуться.</p><div class="features"><span>⌂ Свой дом</span><span>☽ Опасные ночи</span><span>ᚱ Тайны леса</span></div><p>Собирайте припасы, обустройте убежище и найдите древнего хранителя. Ночью лес становится опаснее. Все действия происходят только пока вы играете.</p><div class="row">${button(knownSave?'Продолжить путь':'Войти в лес','play','primary')}${knownSave?button('Новый путь','new-confirm','secondary'):''}${button('Управление','help','secondary')}</div>${saveError?`<p class="notice">${escape(saveError)}</p>`:''}<footer>Лесная проверка · обычная сложность · без аккаунта</footer></div>`;
+    html=`<div class="intro"><div class="nordic-crest"><span>ᛉ</span><i>ᚠ ᚢ ᚦ ᚨ ᚱ ᚲ</i></div><div class="eyebrow">САГА ОЧАГА · ОДИНОЧНОЕ ПРИКЛЮЧЕНИЕ</div><h1 id="panelTitle">Мидгард</h1><p class="lead">Под ветвями мирового древа.<br>Возведите свой дом. Переживите тьму.</p><div class="features"><span>${icon('wall')} Свой чертог</span><span>${icon('sword')} Опасные ночи</span><span>${icon('journal')} Руны леса</span></div><p>Собирайте припасы, обустройте убежище и найдите древнего хранителя. Ночью лес становится опаснее. Все действия происходят только пока вы играете.</p><div class="row">${button(knownSave?'Продолжить путь':'Войти в лес','play','primary')}${knownSave?button('Новый путь','new-confirm','secondary'):''}${button('Управление','help','secondary')}</div>${saveError?`<p class="notice">${escape(saveError)}</p>`:''}<footer>Лесная проверка · обычная сложность · без аккаунта</footer></div>`;
   }
   else if(panelName==='bag'){
-    html=title('Сумка')+`<p class="muted">Содержимое сумки останется на месте гибели. Сундук дома сохраняет запасы.</p><div class="cards">`+Object.entries(p.inv).filter(([,v])=>v>0).map(([k,v])=>`<article class="card"><h3>${G.ITEMS[k]} <small>×${v}</small></h3>${G.FOODS[k]?`<p>Сытость ${G.FOODS[k].sat/60} мин${G.FOODS[k].buff?` · +${G.FOODS[k].hp} к максимуму здоровья на ${G.FOODS[k].buff/60} мин`:''}</p>${button('Съесть',`eat:${k}`)}`:['sword','bow'].includes(k)?`<p>${k==='bow'?'Дальний бой, расходует стрелы':'Меч: направленный взмах с коротким замахом'}</p>${button(p.weapon===k?'В руках':'Взять в руки',`equip:${k}`)}`:k==='armor'?`<p>Снижает урон. Прочность ${Math.floor(p.durability)}%.</p>${button('Починить у верстака · 2 шкуры','armor-repair')}`:'<p>Материал для выживания и развития дома.</p>'}</article>`).join('')+'</div>';
+    html=title('Сумка странника')+'<div class="inventory-layout">'+inventoryGrid(p.inv,true)+itemDetails(selectedItem)+'</div><p class="muted">Вещи остаются на месте гибели. Пояс — быстрый доступ к предметам из сумки.</p>';
   }
   else if(panelName==='build'){
     html=title('Ваш дом')+`<p>Один участок, свободная планировка. Пол → стены с дверью → очаг и оборудование. Постройка защищает, когда контур стен закрыт.</p><div class="stock">${stock()}</div>`;
     if(!game.home)html+=`<div class="notice">Отметьте участок там, где стоите. Гексагональный участок радиусом 5 клеток. Стоимость: 4 дерева. Перенос в лесной версии недоступен.</div><br>${button('Отметить участок','claim','primary')}`;
-    else html+=`<div class="notice">Сила дома: ${G.homeValue(game)}. Разрушители приходят от 28. Пол, обычные стены и украшения не усиливают набеги.</div><br><div class="cards">`+Object.entries(G.PARTS).map(([k,d])=>`<article class="card"><h3>${d.name}</h3><p>${d.desc}</p><small>${costText(d.cost)}</small>${button('Разместить',`place:${k}`,G.afford(p.inv,d.cost)?'available':'')}</article>`).join('')+`</div><hr><div class="row">${button('Ремонтировать рядом · 2 дерева','repair','secondary')}${button('Разобрать часть → вернуть 50%','demolish','secondary')}</div>`;
+    else html+=`<div class="notice">Сила дома: ${G.homeValue(game)}. Разрушители приходят от 28. Пол, обычные стены и украшения не усиливают набеги.</div><br><div class="cards">`+Object.entries(G.PARTS).map(([k,d])=>`<article class="card"><div class="recipe-icon">${icon(k)}</div><h3>${d.name}</h3><p>${d.desc}</p><small>${costText(d.cost)}</small>${button('Разместить',`place:${k}`,G.afford(p.inv,d.cost)?'available':'')}</article>`).join('')+`</div><hr><div class="row">${button('Ремонтировать рядом · 2 дерева','repair','secondary')}${button('Разобрать часть → вернуть 50%','demolish','secondary')}</div>`;
   }
   else if(panelName==='craft'){
-    html=title('Мастерская')+`<p>Готовьте снаряжение и еду у оборудования дома. Если рядом монстры, сначала освободите рабочее место.</p><div class="stock">${stock()}</div><div class="cards">`+Object.entries(G.RECIPES).map(([k,r])=>`<article class="card"><h3>${G.ITEMS[k]} ${r.count>1?`×${r.count}`:''}</h3><p>${G.PARTS[r.station].name} ${G.station(game,r.station)?'· рядом':'· подойдите ближе'}</p><small>${costText(r.cost)}</small>${button('Создать',`craft:${k}`,G.afford(p.inv,r.cost)&&G.station(game,r.station)?'available':'')}</article>`).join('')+'</div>';
+    html=title('Мастерская')+`<p>Куйте оружие, готовьте еду и варите зелья у оборудования дома. Если рядом монстры, сначала освободите рабочее место.</p><div class="stock">${stock()}</div><div class="cards">`+Object.entries(G.RECIPES).map(([k,r])=>`<article class="card"><div class="recipe-icon">${icon(k)}</div><h3>${G.ITEMS[k]} ${r.count>1?`×${r.count}`:''}</h3><p>${G.PARTS[r.station].name} ${G.station(game,r.station)?'· рядом':'· подойдите ближе'}</p><small>${costText(r.cost)}</small>${button('Создать',`craft:${k}`,G.afford(p.inv,r.cost)&&G.station(game,r.station)?'available':'')}</article>`).join('')+'</div>';
   }
   else if(panelName==='skills'){
-    html=title('Навыки')+`<p>Навыки растут от действий. Выбранное направление получает полный опыт, остальные — 20%. Общий предел — 150 очков: сосредоточение выгоднее.</p><div class="cards">`+Object.entries(G.SKILLS).map(([k,name])=>`<article class="card"><h3>${name} · ${p.skills[k].toFixed(1)}</h3><div class="skillbar"><i style="width:${p.skills[k]}%"></i></div><p>${k==='guard'?'Улучшает защиту и расход выносливости при блоке. Растёт в столкновениях.':'Каждое очко увеличивает урон оружия на 1,6%.'}</p>${button(p.focus===k?'Основное направление':'Сосредоточиться',`focus:${k}`)}</article>`).join('')+`</div><hr><h3>Перераспределение у верстака</h3><p>Переносит до 10 очков с потерей 20%. Исходный навык ослабевает. Смена направления обучения сама по себе не переносит опыт.</p><div class="row"><label>Из <select id="fromSkill">${Object.entries(G.SKILLS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></label><label>В <select id="toSkill">${Object.entries(G.SKILLS).map(([k,v])=>`<option value="${k}" ${k==='bow'?'selected':''}>${v}</option>`).join('')}</select></label>${button('Перенести с потерей','transfer','danger')}</div>`;
+    html=title('Навыки')+`<p>Навыки растут от действий. Выбранное направление получает полный опыт, остальные — 20%. Общий предел — 150 очков: сосредоточение выгоднее.</p><div class="cards">`+Object.entries(G.SKILLS).map(([k,name])=>`<article class="card"><div class="recipe-icon">${icon(k==='guard'?'guard':k)}</div><h3>${name} · ${p.skills[k].toFixed(1)}</h3><div class="skillbar"><i style="width:${p.skills[k]}%"></i></div><p>${k==='guard'?'Улучшает защиту и расход выносливости при блоке. Растёт в столкновениях.':'Каждое очко увеличивает урон оружия на 1,6%.'}</p>${button(p.focus===k?'Основное направление':'Сосредоточиться',`focus:${k}`)}</article>`).join('')+`</div><hr><h3>Перераспределение у верстака</h3><p>Переносит до 10 очков с потерей 20%. Исходный навык ослабевает. Смена направления обучения сама по себе не переносит опыт.</p><div class="row"><label>Из <select id="fromSkill">${Object.entries(G.SKILLS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></label><label>В <select id="toSkill">${Object.entries(G.SKILLS).map(([k,v])=>`<option value="${k}" ${k==='bow'?'selected':''}>${v}</option>`).join('')}</select></label>${button('Перенести с потерей','transfer','danger')}</div>`;
   }
   else if(panelName==='storage'){
-    html=title('Хранилище')+`<p>Рядом с сундуком не должно быть монстров. Вещи внутри не исчезают при нападениях.</p><h3>В сундуке</h3><div class="stock">${stock(game.storage)}</div><h3>При себе</h3><div class="stock">${stock()}</div><div class="row">${button('Оставить ресурсы и еду','deposit','primary')}${button('Взять запасы','withdraw','secondary')}</div>`;
+    html=title('Хранилище')+`<p>Рядом с сундуком не должно быть монстров. Вещи внутри не исчезают при нападениях.</p><h3>В сундуке</h3>${inventoryGrid(game.storage)}<h3>При себе</h3>${inventoryGrid(p.inv)}<div class="row">${button('Оставить ресурсы и еду','deposit','primary')}${button('Взять запасы','withdraw','secondary')}</div>`;
   }
   else if(panelName==='journal'){
     html=title('Находки')+`<p>Лес оставил записи. Внимательное чтение помогает понять его обитателей.</p>`+(game.notes.length?game.notes.map(i=>`<article class="card"><h3>${G.NOTES[i].title}</h3><p>${G.NOTES[i].text}</p></article>`).join('<br>'):'<div class="notice">У начала тропы стоит камень с надписью.</div>');
   }
   else if(panelName==='map'){
-    html=title('Лес')+`<canvas id="mapCanvas" class="map-canvas" aria-label="Карта леса"></canvas><p class="muted">Светлая точка — вы · золотой участок — дом · красная точка — древний круг · сиреневые — потерянные вещи.</p>`;
+    html=title('Лес')+`<canvas id="mapCanvas" class="map-canvas" aria-label="Карта леса"></canvas><p class="muted">Светлая точка — вы · золотая — дом · красная — древний круг · сиреневая — вещи. Голубое — озёра, светло-серое — непроходимые скалы, охристые кольца — логова.</p>`;
   }
   else if(panelName==='death'){
     html=`<div class="eyebrow">ПУТЬ НЕ ЗАКОНЧЕН</div><h2 id="panelTitle">Лес забрал своё</h2><p>Ваши вещи остались на месте гибели. Навыки и запасы дома сохранены. Хранитель восстановил здоровье.</p><div class="row">${button('Возродиться на старте','respawn:start','primary')}${game.parts.some(v=>v.type==='bed'&&v.hp>0)?button('Возродиться дома','respawn:home','secondary'):''}</div><p class="muted">Дом может быть занят монстрами. Выбор старта всегда доступен.</p>`;
@@ -118,7 +134,7 @@ function renderPanel(){
     html=title('У огня времени')+`<p>Игра на паузе. День, голод и нападения остановлены.</p><div class="row">${button('Продолжить','close','primary')}${button('Сохранить','save','secondary')}${button('Копия сохранения','export','secondary')}${button('Управление','help','secondary')}</div><hr><label>Восстановить из файла <input id="importFile" type="file" accept="application/json,.json"></label><p class="muted">Импорт заменит текущий мир только после подтверждения. Локальное сохранение принадлежит этому браузеру; очистка его данных удаляет прогресс.</p><hr>${button('Начать новый путь','new-confirm','danger secondary')}${saveError?`<p class="notice">${escape(saveError)}</p>`:''}`;
   }
   else if(panelName==='help'){
-    html=title('Как играть')+`<div class="keyhelp"><span>Левый круг / WASD — движение</span><span>Удар / Пробел — атака ближайшей цели</span><span>Блок / удержание Q — защита</span><span>Действие / E — собрать, открыть, прочитать</span><span>Карта / M · Пауза / Esc</span></div><hr><p>Соберите дерево и камень вокруг тропы. В меню строительства отметьте участок и поставьте пол. Затем разместите стены по краям, дверь и очаг. Для строительства выберите деталь и коснитесь гекса мира; направление стены меняет кнопка «Повернуть» или R. Двигаться при этом можно левым кругом.</p><p>У верстака создайте меч, лук, стрелы и броню. Еду можно съесть в сумке. У очага в закрытом доме здоровье восстанавливается, если вы сыты и рядом нет монстров. Короткая вспышка перед атакой противника — время решить, блокировать ли или отступить.</p><p>Нападение начнётся после предупреждения. Закрытая дверь удерживает обычных врагов; развитый дом привлекает разрушителей. Кнопка действия работает с ближайшим объектом — подойдите непосредственно к нужному.</p><div class="row">${button(started?'Вернуться в игру':'К началу',started?'close':'intro','primary')}</div>`;
+    html=title('Как играть')+`<div class="keyhelp"><span>Левый круг / WASD — движение</span><span>Удар / Пробел — атака ближайшей цели</span><span>Блок / удержание Q — защита</span><span>Действие / E — собрать, открыть, прочитать</span><span>Карта / M · Пауза / Esc</span><span>1–9 — предметы на поясе</span></div><hr><p>Соберите дерево и камень вокруг тропы. В меню строительства отметьте участок и поставьте пол. Затем разместите стены по краям, дверь и очаг. Для пола зажмите и протяните область. Для стен протяните область полов — получите замкнутый контур. Одиночное касание ставит стену на ближайшее ребро; R переключает автоматический выбор и шесть направлений. Оставьте проход дверью: разберите один сегмент стены и поставьте дверь. Двигаться при этом можно левым кругом.</p><p>У верстака создайте меч, лук, стрелы и броню. Еду можно съесть в сумке. У очага в закрытом доме здоровье восстанавливается, если вы сыты и рядом нет монстров. Короткая вспышка перед атакой противника — время решить, блокировать ли или отступить.</p><p>Нападение начнётся после предупреждения. Закрытая дверь удерживает обычных врагов; развитый дом привлекает разрушителей. Кнопка действия работает с ближайшим объектом — подойдите непосредственно к нужному.</p><div class="row">${button(started?'Вернуться в игру':'К началу',started?'close':'intro','primary')}</div>`;
   }
   else if(panelName==='new-confirm'){
     html=title('Начать заново?')+`<p>Текущий мир будет заменён. Если он нужен, сначала сохраните копию через меню паузы.</p><div class="row">${button('Заменить мир','new','danger secondary')}${button('Отмена',started?'pause':'intro','primary')}</div>`;
@@ -160,7 +176,10 @@ function refreshPanel(){
 $('panel').addEventListener('click',event=>{
   const b=event.target.closest('[data-action]');
   if(!b)return;
-  const [act,arg]=b.dataset.action.split(':');
+  const [act,arg,extra]=b.dataset.action.split(':');
+  if(act==='select'){selectedItem=arg;refreshPanel();return;}
+  if(act==='use'){G.useItem(game,arg);refreshPanel();}
+  if(act==='assign'){G.assignQuickSlot(game,Number(extra),arg);refreshPanel();}
   if(act==='close'){
     if(!started)openPanel('intro');
     else if(game.player.dead)openPanel('death');
@@ -209,7 +228,7 @@ $('panel').addEventListener('click',event=>{
     refreshPanel();
   }
   if(act==='equip'){
-    game.player.weapon=arg;
+    G.useItem(game,arg);
     refreshPanel();
   }
   if(act==='focus'){
@@ -257,7 +276,7 @@ $('panel').addEventListener('click',event=>{
     }));
     const a=document.createElement('a');
     a.href=url;
-    a.download='forest-hearth-save.json';
+    a.download='midgard-save.json';
     a.click();
     setTimeout(()=>URL.revokeObjectURL(url),1000);
   }
@@ -282,7 +301,16 @@ $('pauseBtn').onclick=()=>{
     openPanel('pause');
   }
 };
-$('turnBuild').onclick=()=>{buildEdge=(buildEdge+1)%6;hud();};
+const turnEdge=()=>{buildEdge=buildEdge===null?0:buildEdge===5?null:buildEdge+1;hud();};
+$('turnBuild').onclick=turnEdge;
+$('quickbar').addEventListener('pointerdown',event=>{
+  if(!canControl()||(event.pointerType==='mouse'&&event.button!==0))return;const b=event.target.closest('[data-slot]');if(!b)return;event.preventDefault();
+  G.useQuickSlot(game,Number(b.dataset.slot));safeSave();hud();
+});
+for(const b of document.querySelectorAll('[data-panel]'))b.innerHTML=icon(b.dataset.panel==='build'?'wall':b.dataset.panel)+`<span>${({bag:'Сумка',build:'Строить',craft:'Ремесло',skills:'Навыки',journal:'Сага'})[b.dataset.panel]}</span>`;
+$('mapBtn').innerHTML=icon('map');
+$('block').innerHTML=icon('guard')+'<small>Блок · Q</small>';
+
 $('rotateBuild').onclick=()=>{
   buildType=null;
   hud();
@@ -327,14 +355,19 @@ pointerBindings.push(bindPointer(canvas, {
   start: event => {
     pointer = { x: event.clientX, y: event.clientY };
     if (!buildType) return;
-    const raw=renderer.world(event.clientX,event.clientY),point=hexRound(raw.x,raw.y);
-    if (buildType === 'remove') {
-      const part=game.parts.filter(o=>G.PARTS[o.type].solid?wallDistance(o,raw)<.22:o.x===point.x&&o.y===point.y).sort((a,b)=>(a.type==='floor')-(b.type==='floor'))[0];
-      if (part) G.removePart(game, part.id);
-    } else G.build(game, buildType, point.x, point.y,buildEdge);
-    safeSave();
+    buildDrag={start:renderer.world(event.clientX,event.clientY),end:renderer.world(event.clientX,event.clientY)};
   },
-  move: event => { pointer = { x: event.clientX, y: event.clientY }; },
+  move: event => {pointer={x:event.clientX,y:event.clientY};if(buildDrag)buildDrag.end=renderer.world(event.clientX,event.clientY);},
+  end: event => {
+    const drag=buildDrag;buildDrag=null;
+    if(!drag||event?.type!=='pointerup'||!canControl()||!buildType)return;
+    drag.end=renderer.world(event.clientX,event.clientY);
+    if(buildType==='remove'){
+      const cell=hexRound(drag.end.x,drag.end.y),part=game.parts.filter(o=>G.PARTS[o.type].solid?wallDistance(o,drag.end)<.22:o.x===cell.x&&o.y===cell.y).sort((a,b)=>(a.type==='floor')-(b.type==='floor'))[0];
+      if(part)G.removePart(game,part.id);
+    }else G.buildBatch(game,placementPlan(game,buildType,drag.start,drag.end,buildEdge));
+    safeSave();hud();
+  },
 }));
 window.addEventListener('keydown',e=>{
   if(['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName))return;
@@ -354,7 +387,8 @@ window.addEventListener('keydown',e=>{
   keys.add(k);
   if(e.repeat)return;
   if(k===' ')G.attack(game);
-  if(k==='r'&&buildType)buildEdge=(buildEdge+1)%6;
+  if(k==='r'&&buildType)turnEdge();
+  if(/^[1-9]$/.test(k)){G.useQuickSlot(game,Number(k)-1);safeSave();hud();}
   if(k==='e')doInteract();
   if(k==='b')openPanel('build');
   if(k==='i')openPanel('bag');
@@ -384,6 +418,7 @@ window.addEventListener('resize',()=>{
   pauseState();
 });
 function hud(){
+  renderQuickbar();
   const p=game.player,max=G.maxHp(game),phase=game.time%G.DAY,night=G.isNight(game),context=G.context(game);
   $('hpFill').style.width=`${Math.max(0,p.hp/max*100)}%`;
   $('hpText').textContent=`${Math.ceil(p.hp)}`;
@@ -401,9 +436,9 @@ function hud(){
   if(game.bossDefeated)objective=['Лес помнит вас','Хранитель повержен. Развивайте дом'];
   $('objectiveTitle').textContent=objective[0];
   $('objectiveText').textContent=objective[1];
-  $('interact').innerHTML=`${context?escape(context.label):'Действие'}<small>E</small>`;
+  $('interact').innerHTML=icon(context?.kind==='resource'?context.type:'hand')+`<small>${context?escape(context.label):'Действие'} · E</small>`;
   $('interact').disabled=!context;
-  $('attack').innerHTML=`${p.weapon==='bow'&&p.inv.bow?'Выстрел':'Удар'}<small>Пробел</small>`;
+  $('attack').innerHTML=icon(p.weapon==='bow'&&p.inv.bow?'bow':'sword')+'<small>Удар · Пробел</small>';
 
   const invaders=G.invaders(game).length,raiders=game.enemies.filter(e=>e.raid&&!e.dead).length;
   $('raid').classList.toggle('hidden',!game.raidPending&&!raiders&&!invaders);
@@ -415,7 +450,11 @@ function hud(){
     $('bossPhase').textContent=boss.hp<boss.maxHp*.5?'Лес пробудился':'Старые корни';
   }
   $('buildBanner').classList.toggle('hidden',!buildType);
-  if(buildType)$('buildHint').textContent=buildType==='remove'?'Коснитесь части для разборки · возврат 50%':`${G.PARTS[buildType].name} · ребро ${buildEdge+1} · ${costText(G.PARTS[buildType].cost)} · коснитесь клетки`;
+  $('turnBuild').textContent=buildEdge===null?'Ребро: авто':'Ребро '+(buildEdge+1)+' ↻';
+  if(buildType){
+    const plan=buildDrag&&buildType!=='remove'?placementPlan(game,buildType,buildDrag.start,buildDrag.end,buildEdge):[];
+    $('buildHint').innerHTML=buildType==='remove'?'Коснитесь части для разборки':`${G.PARTS[buildType].name} · ${plan.length?plan.length+' частей · '+costText(planCost(plan,G.PARTS)):'зажмите и протяните область'}`;
+  }
   const event=game.events.at(-1);
   if(event&&event.id!==lastEvent){
     lastEvent=event.id;
@@ -438,7 +477,8 @@ function frame(now){
     safeSave();
     openPanel('death');
   }
-  renderer.draw(game,buildType,pointer,buildEdge);
+  const preview=buildType&&buildType!=='remove'&&(buildDrag||pointer)?placementPlan(game,buildType,buildDrag?.start||renderer.world(pointer.x,pointer.y),buildDrag?.end||renderer.world(pointer.x,pointer.y),buildEdge):null;
+  renderer.draw(game,buildType,pointer,buildEdge,preview);
   if(now-lastHud>100){
     hud();
     lastHud=now;

@@ -1,4 +1,4 @@
-import { HEX_DIRS, hexRound, hexDistance, metric, wallDistance, sameEdge, wallSegments, intersects } from './hex.js';
+import { HEX_DIRS, hexRound, hexDistance, metric, wallDistance, sameEdge, wallSegments, intersects, segmentDistance } from './hex.js';
 import { MELEE, ENEMY_REACH, sweptHit, aimAngle } from './combat.js';
 // Pure simulation. Seconds of active play only; no wall-clock progression.
 export const SIZE = 64, DAY = 480, START = {
@@ -8,7 +8,7 @@ export const BOSS_POS = {
   x: 48, y: 14
 };
 export const ITEMS = {
-  wood:'Дерево', stone:'Камень', berry:'Ягоды', meat:'Мясо', hide:'Шкура', resin:'Смола', sword:'Меч', bow:'Лук', arrow:'Стрелы', armor:'Кожаная броня', roast:'Жаркое', stew:'Лесная похлёбка', trophy:'Сердце леса'
+  wood:'Дерево', stone:'Камень', berry:'Ягоды', meat:'Мясо', hide:'Шкура', resin:'Смола', sword:'Меч', bow:'Лук', arrow:'Стрелы', armor:'Кожаная броня', roast:'Жаркое', stew:'Лесная похлёбка', trophy:'Сердце леса', potion:'Зелье здоровья'
 };
 export const PARTS = {
   floor:{
@@ -63,6 +63,7 @@ export const PARTS = {
   },
 };
 export const RECIPES = {
+  potion:{cost:{berry:3,resin:1},station:'fire',count:1},
   sword:{
     cost:{
       wood:5,stone:6
@@ -123,8 +124,25 @@ export function hash(x,y) {
   const n=Math.sin(x*127.1+y*311.7)*43758.5453;
   return n-Math.floor(n);
 }
-export function terrain(x,y) {
-  return x<2||y<2||x>61||y>61 ? 'water' : 'grass';
+export const CAMPS=[{x:24,y:31,name:'Волчья лощина',type:'wolf',count:5},{x:39,y:39,name:'Курган драугров',type:'draugr',count:5},{x:43,y:21,name:'Стражи корней',type:'draugr',count:4}];
+export function terrain(x,y,g=null) {
+  ({x,y}=hexRound(x,y));
+  if(x<2||y<2||x>61||y>61)return 'water';
+  if(g?.legacyTerrainHome&&g.home&&inHome(g,{x,y}))return 'grass';
+  if(distance({x,y},START)<7||distance({x,y},BOSS_POS)<6||NOTES.some(n=>distance(n,{x,y})<2)||isTrail(x,y))return 'grass';
+  const ellipse=(cx,cy,rx,ry)=>((x-cx)/rx)**2+((y-cy)/ry)**2;
+  if(ellipse(23,19,6,4)<1||ellipse(43,47,7,4)<1||ellipse(10,28,3,5)<1)return 'water';
+  if(ellipse(31,43,3,7)<1||ellipse(45,7,9,3)<1||ellipse(53,34,4,7)<1)return 'mountain';
+  if(ellipse(23,19,7.5,5.5)<1||ellipse(43,47,8.5,5.5)<1||ellipse(10,28,4.5,6.5)<1)return 'shore';
+  if(ellipse(31,43,5,9)<1||ellipse(53,34,6,9)<1)return 'heath';
+  return 'grass';
+}
+export const walkable=(x,y,g=null)=>!['water','mountain'].includes(terrain(x,y,g));
+export function nearestLand(pos,g=null){
+  if(walkable(pos.x,pos.y,g))return {x:pos.x,y:pos.y};
+  const c=hexRound(pos.x,pos.y);
+  for(let r=1;r<SIZE;r++)for(let x=c.x-r;x<=c.x+r;x++)for(let y=c.y-r;y<=c.y+r;y++)if(hexDistance(c,{x,y})===r&&walkable(x,y,g))return{x,y};
+  return {...START};
 }
 export function isTrail(x,y) {
   return Math.abs(y-(53-x*.8))<1.4;
@@ -150,10 +168,10 @@ export function makeEnemy(type,x,y,id,raid=false) {
 }
 export function createGame() {
   const g={
-    version:1,grid:'hex',time:0,player:{
+    version:1,grid:'hex',landscape:2,time:0,player:{
       ...START,hp:100,stamina:100,food:600,buff:0,foodBonus:0,inv:{
         wood:0,stone:0,berry:3
-      },weapon:'hands',durability:100,skills:{
+      },quickbar:['sword','bow','berry','roast','stew','potion',null,null,null],potionCooldown:0,weapon:'hands',durability:100,skills:{
         sword:0,bow:0,guard:0
       },focus:'sword',dead:false,attack:0,hurt:0,blocking:false,facing:{
         x:0,y:-1
@@ -164,7 +182,7 @@ export function createGame() {
     },paused:false
   };
   for(let x=4; x<60; x++) for(let y=4; y<60; y++) {
-    if(distance({
+    if(!walkable(x,y)||distance({
       x,y
     },START)<2.5||distance({
       x,y
@@ -172,7 +190,7 @@ export function createGame() {
       x,y
     })<1.4)||isTrail(x,y))continue;
     const h=hash(x,y);
-    let type=h<.095?'wood':h<.125?'stone':h<.153?'berry':null;
+    let type=h<.047?'wood':h<.065?'stone':h<.084?'berry':null;
     if(type)g.resources.push({
       id:`r${x}_${y}`,x,y,type,ready:0
     });
@@ -181,6 +199,11 @@ export function createGame() {
     id:`start${x}`,x,y,type,ready:0
   });
   [[22,37,'wolf'],[27,33,'draugr'],[32,24,'wolf'],[39,24,'draugr'],[42,34,'wolf'],[29,18,'draugr'],[48,29,'wolf'],[19,23,'draugr']].forEach(([x,y,t],i)=>g.enemies.push(makeEnemy(t,x,y,`e${i}`)));
+  for(const camp of CAMPS)for(let i=0;i<camp.count;i++){
+    const pos=nearestLand({x:camp.x+(i%3)-1,y:camp.y+Math.floor(i/3)-1});
+    g.enemies.push(makeEnemy(camp.type,pos.x,pos.y,`camp${camp.x}_${i}`));
+  }
+  for(const e of g.enemies){const pos=nearestLand(e);Object.assign(e,pos,{origin:{...pos}});}
   g.enemies.push(makeEnemy('boss',BOSS_POS.x,BOSS_POS.y,'boss'));
   return g;
 }
@@ -224,11 +247,23 @@ export function solidAt(g,x,y,radius=.08) {
   return g.parts.find(p=>p.hp>0&&PARTS[p.type].solid&&!(p.type==='door'&&p.open)&&wallDistance(p,{x,y})<radius);
 }
 export function canStand(g,x,y) {
-  return terrain(x,y)!=='water'&&!solidAt(g,x,y,.18);
+  return walkable(x,y,g)&&!solidAt(g,x,y,.18);
+}
+function movementClear(g,a,b) {
+  if(!canStand(g,b.x,b.y))return false;
+  return !g.parts.some(p=>p.hp>0&&PARTS[p.type].solid&&!(p.type==='door'&&p.open)&&wallSegments(p).some(([u,v])=>segmentDistance(a,b,u,v)<.18-1e-7));
 }
 export function move(g,p,dx,dy) {
-  if(canStand(g,p.x+dx,p.y)&&lineClear(g,p,{x:p.x+dx,y:p.y}))p.x+=dx;
-  if(canStand(g,p.x,p.y+dy)&&lineClear(g,p,{x:p.x,y:p.y+dy}))p.y+=dy;
+  // Sweep a body radius through every edge, including shared corners; subdivide terrain crossings.
+  const steps=Math.max(1,Math.ceil(metric({x:dx,y:dy},{x:0,y:0})/.12));
+  for(let i=0;i<steps;i++){
+    const x=dx/steps,y=dy/steps,b={x:p.x+x,y:p.y+y};
+    if(movementClear(g,p,b)){p.x=b.x;p.y=b.y;}
+    else {
+      if(movementClear(g,p,{x:p.x+x,y:p.y}))p.x+=x;
+      if(movementClear(g,p,{x:p.x,y:p.y+y}))p.y+=y;
+    }
+  }
 }
 export function sheltered(g,p=g.player) {
   const cell=hexRound(p.x,p.y);
@@ -270,7 +305,7 @@ export function build(g,type,x,y,edge=0) {
   if(distance(g.player,{
     x,y
   })>7)return tell(g,'Подойдите ближе к месту строительства.'),false;
-  if(terrain(x,y)==='water'||(d.solid?(wallDistance({x,y,edge},g.player)<.2||g.enemies.some(e=>!e.dead&&wallDistance({x,y,edge},e)<.2)):g.enemies.some(e=>!e.dead&&distance(e,{x,y})<.5)))return tell(g,'Место занято.'),false;
+  if(!walkable(x,y,g)||(d.solid?(wallDistance({x,y,edge},g.player)<.2||g.enemies.some(e=>!e.dead&&wallDistance({x,y,edge},e)<.2)):g.enemies.some(e=>!e.dead&&distance(e,{x,y})<.5)))return tell(g,'Место занято.'),false;
   const candidate={x,y,edge};
   if(d.solid&&(!Number.isInteger(edge)||edge<0||edge>5))return false;
   const same=g.parts.filter(p=>p.x===x&&p.y===y);
@@ -286,6 +321,14 @@ export function build(g,type,x,y,edge=0) {
     x,y,text:'Построено',color:'#e9cc86',life:1
   });
   return true;
+}
+export function buildBatch(g,plan) {
+  if(!plan.length)return tell(g,'Выберите свободные клетки или рёбра пола.'),false;
+  if(plan.length>250||g.parts.length+plan.length>750)return tell(g,'Слишком большая область.'),false;
+  const trial={...g,player:{...g.player,inv:{...g.player.inv}},parts:[...g.parts],resources:g.resources.map(r=>({...r})),effects:[],events:[]};
+  for(const p of plan)if(!build(trial,p.type,p.x,p.y,p.edge)){tell(g,trial.events.at(-1)?.text||'Область недоступна.');return false;}
+  g.player.inv=trial.player.inv;g.parts=trial.parts;g.resources=trial.resources;g.nextId=trial.nextId;
+  tell(g,`Построено частей: ${plan.length}`);return true;
 }
 export function repair(g,p) {
   if(!p||distance(g.player,p)>3)return false;
@@ -336,6 +379,24 @@ export function eat(g,item) {
   tell(g,`${ITEMS[item]}: сытость ${Math.ceil(p.food/60)} мин${f.buff?`, бонус здоровья ${f.buff/60} мин`:''}.`);
   return true;
 }
+export const usableItem=item=>['sword','bow','potion'].includes(item)||Object.hasOwn(FOODS,item);
+export function useItem(g,item){
+  const p=g.player;if(p.dead||!p.inv[item])return false;
+  if(item==='sword'||item==='bow'){p.weapon=item;return true;}
+  if(FOODS[item])return eat(g,item);
+  if(item==='potion'){
+    if(p.potionCooldown>0)return tell(g,`Зелье будет доступно через ${Math.ceil(p.potionCooldown)} с.`),false;
+    if(p.hp>=maxHp(g))return tell(g,'Здоровье уже полное.'),false;
+    add(p.inv,item,-1);p.hp=Math.min(maxHp(g),p.hp+40);p.potionCooldown=20;
+    g.effects.push({x:p.x,y:p.y,text:'+ здоровье',color:'#e2b78b',life:1});return true;
+  }
+  return false;
+}
+export function assignQuickSlot(g,index,item){
+  if(!Number.isInteger(index)||index<0||index>8||(item!==null&&!usableItem(item)))return false;
+  g.player.quickbar[index]=item;return true;
+}
+export function useQuickSlot(g,index){return Number.isInteger(index)&&index>=0&&index<9?useItem(g,g.player.quickbar[index]):false;}
 export function gainSkill(g,type,amount=1) {
   const p=g.player,total=Object.values(p.skills).reduce((a,b)=>a+b,0);
   p.skills[type]=Math.min(100,p.skills[type]+amount*(p.focus===type?1:.2)*Math.max(0,(150-total)/150));
@@ -452,6 +513,8 @@ function resolveSwing(g,fromTime) {
   if(p.attack<=0)p.swing=null;
 }
 function lineClear(g,a,b) {
+  const steps=Math.ceil(distance(a,b)/.2);
+  for(let i=0;i<=steps;i++){const t=steps?i/steps:0;if(terrain(a.x+(b.x-a.x)*t,a.y+(b.y-a.y)*t,g)==='mountain')return false;}
   return !g.parts.some(p=>p.hp>0&&PARTS[p.type].solid&&!(p.type==='door'&&p.open)&&wallSegments(p).some(([u,v])=>intersects(a,b,u,v)));
 }
 function hurtEnemy(g,e,n) {
@@ -541,7 +604,8 @@ export function startRaid(g) {
   for(let i=0; i<count; i++){
     const a=i/count*Math.PI*2;
     const type=value>=28&&i===0?'breaker':i%2?'wolf':'draugr';
-    g.enemies.push(makeEnemy(type,clamp(g.home.x+Math.cos(a)*9,3,60),clamp(g.home.y+Math.sin(a)*9,3,60),`raid${g.nextId++}`,true));
+    const spawn=nearestLand({x:clamp(g.home.x+Math.cos(a)*9,3,60),y:clamp(g.home.y+Math.sin(a)*9,3,60)},g);
+    g.enemies.push(makeEnemy(type,spawn.x,spawn.y,`raid${g.nextId++}`,true));
   }
   tell(g,'На дом нападают! Можно вернуться или освободить его позже.');
 }
@@ -622,7 +686,7 @@ export function tick(g,dt,input={
   dt=clamp(dt,0,.1);
   g.time+=dt;
   const p=g.player;
-  for(const k of ['attack','hurt','buff','food'])p[k]=Math.max(0,p[k]-dt);
+  for(const k of ['attack','hurt','buff','food','potionCooldown'])p[k]=Math.max(0,p[k]-dt);
   p.blocking=!!input.block;
   p.stamina=Math.min(100,p.stamina+dt*(p.blocking?5:20));
   p.hp=Math.min(p.hp,maxHp(g));
@@ -699,6 +763,17 @@ export function loadGame(raw) {
   if(!g.stats||!['gathered','crafted','kills','nights'].every(k=>number(g.stats[k])))fail();
   if(g.grid!=='hex'&&g.home)g.legacySquarePlot=true;g.grid='hex';
   delete p.parry; delete p.parryCooldown; p.swing=null;
+  if(p.quickbar===undefined)p.quickbar=['sword','bow','berry','roast','stew','potion',null,null,null];
+  if(!Array.isArray(p.quickbar)||p.quickbar.length!==9||!p.quickbar.every(k=>k===null||usableItem(k)))fail();
+  if(p.potionCooldown===undefined)p.potionCooldown=0;
+  if(!number(p.potionCooldown,0,20))fail();
+  if(g.landscape!==2){
+    const fresh=createGame();g.resources=fresh.resources;g.landscape=2;g.legacyTerrainHome=!!g.home;
+    for(const e of fresh.enemies.filter(e=>e.id.startsWith('camp')))if(!g.enemies.some(old=>old.id===e.id))g.enemies.push(e);
+    for(const e of g.enemies){const pos=nearestLand(e,g);Object.assign(e,pos);e.origin=nearestLand(e.origin,g);}
+    Object.assign(p,nearestLand(p,g));
+    for(const grave of g.graves)Object.assign(grave,nearestLand(grave,g));
+  }
   g.events=[];
   g.effects=[];
   g.paused=false;
