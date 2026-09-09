@@ -158,7 +158,7 @@ function humanoid(r, actor, g, pose, player) {
   if (player) { r.poly([[-4, -30], [6, -31], [3, -24], [-3, -26]], '#796346'); }
   else { line(c, [[-5, -38], [-11, -45]], '#a6a987', 2); line(c, [[4, -39], [10, -45]], '#a6a987', 2); }
   c.fillStyle = player ? '#273d37' : '#e1bd77'; c.fillRect(2, -34, 3, 2);
-  if (player && g.player.weapon === 'bow' && g.player.inv.bow && !g.player.swing) {
+  if (player && g.player.weapon === 'bow' && g.player.inv.bow && !g.player.swing && !g.player.harvest) {
     const pull = pose.strike * 7;
     line(c, [[7, -25], [15, -23]], skin, 4);
     line(c, [[-4, -25], [10 - pull, -23]], skin, 3);
@@ -248,7 +248,7 @@ export function drawActor(r, actor, g, player, pose) {
     c.arc(8, boss ? -34 : -23, boss ? 40 : 23, -.8 + (1 - pose.strike) * 2, .3 + (1 - pose.strike) * 2); c.stroke();
   }
   c.restore();
-  if(player)drawMelee(r,actor,g,pose);
+  if(player){if(actor.harvest)drawGatherTool(r,actor,g,pose);else drawMelee(r,actor,g,pose);}
   if (!player && actor.hp < actor.maxHp && !boss) {
     c.fillStyle = '#13281d'; c.fillRect(q.x - 15, q.y - 70, 30, 3);
     c.fillStyle = '#bf8267'; c.fillRect(q.x - 15, q.y - 70, 30 * actor.hp / actor.maxHp, 3);
@@ -279,4 +279,14 @@ function drawMelee(r,actor,g,pose) {
     line(c,points,'#eae5c588',2);
   }
   c.restore();
+}
+
+function drawGatherTool(r,actor,g,pose){
+  const c=r.ctx,q=r.screen(actor.x,actor.y),age=g.time-actor.harvest.started;
+  const angle=age<.12?-.4-age/.12*2.4:age<.22?-2.8+(age-.12)/.1*2.6:-.2+(age-.22)/.33*.3;
+  c.save();c.translate(q.x+8*pose.facing,q.y-30);c.scale(pose.facing,1);c.rotate(angle);
+  line(c,[[0,0],[25,0]],'#b8a078',4);
+  if(actor.harvest.type==='wood')r.poly([[20,-4],[30,-9],[30,6],[20,3]],'#bfc7b9','#657c79');
+  else line(c,[[20,-10],[27,-4],[28,4],[24,10]],'#c1ccc3',4);
+  oval(c,1,0,4,4,'#d9bd92');c.restore();
 }

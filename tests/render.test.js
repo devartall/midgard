@@ -101,3 +101,12 @@ test('lake, mountain and multi-cell construction previews produce finite drawing
   r.draw(g,'floor',null,null,[{type:'floor',x:12,y:43},{type:'floor',x:13,y:43}]);
   r.draw(g,'wall',null,null,[{type:'wall',x:12,y:43,edge:0},{type:'wall',x:12,y:43,edge:1}]);
 });
+
+test('harvest tools and resource progress draw finite coordinates through windup, impact and recovery',()=>{
+  const r=new Renderer(canvasMock());
+  for(const type of ['wood','stone']){
+    const g=G.createGame();g.enemies=[];g.resources=[{id:'harvest',...G.START,type,ready:0}];G.interact(g);
+    for(let i=0;i<7;i++){G.tick(g,.08);r.draw(g);}
+    assert.equal(g.resources[0].hits,1);
+  }
+});

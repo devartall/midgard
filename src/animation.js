@@ -31,6 +31,7 @@ export class ActorAnimator {
     const look=swing?Math.cos(actor.swing.angle)-Math.sin(actor.swing.angle):f.x-f.y;
     if(swing){state.windup=swing.phase==='windup'?swing.age/MELEE[actor.swing.weapon].windup:0;state.strike=swing.phase==='active'?1-swing.progress:0;}
     if ((state.strike || state.windup || actor.blocking) && Number.isFinite(look) && Math.abs(look) > .01) state.facing = Math.sign(look);
+    if(actor.harvest){const age=time-actor.harvest.started,direction=toPlane(actor.harvest.facing.x,actor.harvest.facing.y),side=direction.x-direction.y;state.windup=age<.12?age/.12:0;state.strike=age>=.12?Math.max(0,1-(age-.12)/.43):0;if(Math.abs(side)>.01)state.facing=Math.sign(side);}
     state.step = Math.sin(state.phase) * state.pace;
     state.bob = -Math.abs(Math.cos(state.phase)) * state.pace * 2;
     state.lunge = actor.swing?0:Math.sin(state.strike * Math.PI) * 5;

@@ -2,7 +2,7 @@ import { wallEdges, toPlane, fromPlane, corners, hexRound, edgePoints } from './
 import { ActorAnimator } from './animation.js';
 import { drawActor, drawBuilding, drawFloor } from './art.js';
 import {
-  CAMPS, PARTS, SIZE,DAY,START,BOSS_POS,NOTES,hash,terrain,isTrail,isNight,distance,inHome,homeValue
+  GATHER, context, CAMPS, PARTS, SIZE,DAY,START,BOSS_POS,NOTES,hash,terrain,isTrail,isNight,distance,inHome,homeValue
 }
 from './game.js';
 const palette=['#354b32','#3a5034','#3d5135','#344a31','#3e5438','#41563a'];
@@ -211,7 +211,7 @@ export class Renderer {
       o,kind
     }
     of objects){
-      if(kind==='resource')this.resource(o,g);
+      if(kind==='resource'){c.save();const elapsed=g.time-o.struckAt;if(elapsed>=0&&elapsed<.2)c.translate(Math.sin(elapsed*75)*3*(1-elapsed/.2),0);this.resource(o,g);c.restore();}
       else if(kind==='part')this.part(o,g);
       else if(kind==='mountain')this.mountain(o);
       else if(kind==='enemy'||kind==='player')this.actor(o,g,kind==='player');
@@ -252,6 +252,17 @@ export class Renderer {
         c.stroke();
       }
       else this.text(q.x,q.y-45-(1-fx.life)*15,fx.text,fx.color,12);
+    }
+    const target=context(g);
+    if(target?.kind==='resource'){
+      const q=this.screen(target.x,target.y),active=target.ready<=g.time;
+      this.hex(target.x,target.y,.65,'#d8c58216',active?'#edcf88':'#8f9b9477');
+      if(active){
+        const hits=target.hits||0,total=GATHER[target.type].hits;
+        c.fillStyle='#102026ee';c.fillRect(q.x-32,q.y+9,64,20);
+        this.text(q.x,q.y+22,`${target.type==='wood'?'Дерево':target.type==='stone'?'Камень':'Ягоды'} ${hits}/${total}`,'#f0d9a0',10);
+        c.fillStyle='#415a52';c.fillRect(q.x-30,q.y+30,60,3);c.fillStyle='#e3bd78';c.fillRect(q.x-30,q.y+30,60*hits/total,3);
+      }
     }
     if(preview){
       const cost={};for(const p of preview)for(const [k,n]of Object.entries(PARTS[p.type].cost))cost[k]=(cost[k]||0)+n;

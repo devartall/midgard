@@ -8,7 +8,8 @@ import {
 from 'node:fs';
 test('UI boots, opens every panel, moves via keyboard, saves and pauses while hidden',async()=>{
   const elements=new Map(),winEvents=new Map(),docEvents=new Map(),storage=new Map();
-  let nextFrame;
+  let nextFrame,frameClock=0;
+  const frame=()=>nextFrame(frameClock+=100);
   const ctx=new Proxy({
     createRadialGradient:()=>({
       addColorStop(){
@@ -79,7 +80,7 @@ test('UI boots, opens every panel, moves via keyboard, saves and pauses while hi
   globalThis.requestAnimationFrame=fn=>{
     nextFrame=fn;
   };
-  const seed=createGame();seed.player.inv.wood=500;seed.player.inv.stone=100;seed.enemies=[];storage.set('forest-hearth-v1',saveGame(seed));
+  const seed=createGame();seed.player.inv.wood=500;seed.player.inv.stone=100;seed.enemies=[];seed.time=350;seed.resources=[{id:'uiwood',x:seed.player.x,y:seed.player.y,type:'wood',ready:0}];storage.set('forest-hearth-v1',saveGame(seed));
   await import('../src/main.js');
   const click=action=>elements.get('panel').events.get('click')({
     target:{
@@ -92,13 +93,17 @@ test('UI boots, opens every panel, moves via keyboard, saves and pauses while hi
   });
   assert.match(elements.get('panel').innerHTML,/Мидгард/);
   click('play');
-  nextFrame(100);
+  frame();
+  winEvents.get('keydown')({key:'у',code:'KeyE',repeat:false,preventDefault(){}});
+  for(let i=0;i<26;i++)frame();
+  winEvents.get('keyup')({key:'у',code:'KeyE'});
+  elements.get('pauseBtn').onclick();assert.equal(JSON.parse(storage.get('forest-hearth-v1')).player.inv.wood,504,'holding physical E harvests at night in Cyrillic layout');click('close');
   const initial=JSON.parse(storage.get('forest-hearth-v1'));
   winEvents.get('keydown')({
     key:'d',preventDefault(){
     },repeat:false
   });
-  for(let t=200; t<=2200; t+=100)nextFrame(t);
+  for(let t=200; t<=2200; t+=100)frame();
   winEvents.get('keyup')({
     key:'d'
   });
@@ -124,7 +129,7 @@ test('UI boots, opens every panel, moves via keyboard, saves and pauses while hi
   assert.ok(JSON.parse(storage.get('forest-hearth-v1')).home);
   const world=elements.get('world');
   const send=(type,x,y)=>world.events.get(type)({type,pointerId:77,pointerType:'touch',button:0,cancelable:true,clientX:x,clientY:y,preventDefault(){}});
-  send('pointerdown',350,165);send('pointermove',490,230);nextFrame(2400);
+  send('pointerdown',350,165);send('pointermove',490,230);frame();frame();
   assert.match(elements.get('buildHint').innerHTML,/частей/);
   assert.equal(JSON.parse(storage.get('forest-hearth-v1')).parts.length,0,'no placement before release');
   send('pointerup',490,230);
@@ -139,7 +144,7 @@ test('UI boots, opens every panel, moves via keyboard, saves and pauses while hi
   document.hidden=true;
   docEvents.get('visibilitychange')();
   const paused=JSON.parse(storage.get('forest-hearth-v1'));
-  for(let t=3000; t<5000; t+=100)nextFrame(t);
+  for(let t=3000; t<5000; t+=100)frame();
   elements.get('pauseBtn').onclick();
   assert.equal(JSON.parse(storage.get('forest-hearth-v1')).time,paused.time);
 });

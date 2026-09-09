@@ -1,0 +1,23 @@
+<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Проверка интерфейса Мидгарда</title>
+<style>body{font:14px system-ui;background:#142126;color:#e3d7be;margin:20px}button{padding:10px}pre{white-space:pre-wrap}iframe{display:block;border:1px solid #baa277;margin-top:16px;background:#253d35}#stage{overflow:auto}</style>
+<h1>Проверка размещения интерфейса</h1><p>Изолированная копия HTML и стилей игры. Сохранения не читаются и не изменяются. Проверяются реальные DOM-прямоугольники: уведомления, пояс, кнопки, окна и центр крестика.</p>
+<button id="run">Проверить размеры экранов</button><pre id="results" role="status"></pre><div id="stage"></div>
+<script type="module">
+const output=document.querySelector('#results');
+document.querySelector('#run').onclick=async()=>{
+ const button=document.querySelector('#run');button.disabled=true;output.textContent='';
+ try{
+  const html=await (await fetch('/index.html')).text(),frame=document.createElement('iframe');
+  frame.title='Тестовая сцена интерфейса';document.querySelector('#stage').replaceChildren(frame);
+  frame.srcdoc=html.replace('<head>','<head><base href="/">').replace('src="src/main.js"','src="tools/layout-fixture.js"');
+  await new Promise(resolve=>frame.onload=resolve);
+  let checks=0,failed=0;
+  for(const [width,height]of [[568,280],[667,320],[734,303],[844,280],[844,303],[844,390],[896,414],[1024,768],[1280,720]])for(const mode of ['hud','building','inventory'])for(const safe of [false,true]){
+   frame.style.width=width+'px';frame.style.height=height+'px';
+   const errors=await frame.contentWindow.runLayoutCase({width,height,mode,insets:safe?{left:47,right:47,bottom:21}:{}});
+   checks++;if(errors.length){failed++;output.textContent+=`${width}×${height}, ${mode}, safe=${safe}: ${errors.join('; ')}\n`;}
+  }
+  output.textContent+=`Проверено: ${checks}. С ошибками: ${failed}.\n`;
+ }catch(error){output.textContent+='Ошибка запуска: '+error.message;}finally{button.disabled=false;}
+};
+</script></html>

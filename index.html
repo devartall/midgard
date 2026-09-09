@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#14241f"><meta name="apple-mobile-web-app-capable" content="yes">
-<title>Мидгард — Сага очага</title><link rel="stylesheet" href="style.css">
+<title>Мидгард — Сага очага</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="src/hud.css">
 </head>
 <body>
 <canvas id="world" aria-label="Изометрический лесной мир"></canvas>
@@ -15,13 +15,17 @@
   </header>
   <section class="vitals"><div class="meter hp"><span>✚</span><div><i id="hpFill"></i></div><b id="hpText">100</b></div><div class="meter stamina"><span>ϟ</span><div><i id="staminaFill"></i></div><b id="staminaText">100</b></div><div class="foodline"><span>◒</span><span id="foodText"></span></div><small id="buffText"></small></section>
   <aside class="objective"><small>ПУТЬ В ЛЕС</small><strong id="objectiveTitle">Разведите свой очаг</strong><span id="objectiveText">Соберите дерево и камень</span></aside>
+  <div class="hud-alerts">
   <div id="raid" class="raid hidden" role="status"></div>
   <div id="bossHud" class="boss-hud hidden"><small>ДРЕВНИЙ ХРАНИТЕЛЬ</small><div><i id="bossFill"></i></div><span id="bossPhase"></span></div>
-  <div id="toast" role="status"></div>
   <div id="buildBanner" class="build-banner hidden"><span id="buildHint"></span><button id="turnBuild">Повернуть ↻</button><button id="rotateBuild">Готово</button></div>
+  </div>
+  <div class="hud-dock">
+  <div id="toast" role="status"></div>
   <div id="quickbar" class="quickbar" role="group" aria-label="Быстрый доступ — клавиши 1–9"></div>
   <div class="bottom-nav"><button data-panel="bag">▤ <span>Сумка</span></button><button data-panel="build">⌂ <span>Строить</span></button><button data-panel="craft">⚒ <span>Крафт</span></button><button data-panel="skills">ᚱ <span>Навыки</span></button><button data-panel="journal">≡ <span>Находки</span></button></div>
-  <div id="joystick" aria-label="Движение"><div class="stick-ring"></div><div id="stick"></div><small>ДВИЖЕНИЕ</small></div>
+  </div>
+  <div class="hud-movement"><div id="joystick" aria-label="Движение"><div class="stick-ring"></div><div id="stick"></div><small>ДВИЖЕНИЕ</small></div></div>
   <div class="combat"><button id="interact" class="action interact">Взять <small>E</small></button><button id="block" class="action block">Блок <small>удерживать · Q</small></button><button id="attack" class="action attack">Удар <small>Пробел</small></button></div>
   <div class="desktop-hint">WASD — движение · E — действие · Q — блок · B — строительство</div>
 </div>

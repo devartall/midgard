@@ -73,22 +73,16 @@ canvas#world{
   -webkit-touch-callout:none;
 }
 #hud{
-  position:fixed;
-  inset:0;
-  pointer-events:none;
-  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)
+  pointer-events:none
 }
 #hud button,#joystick{
   pointer-events:auto
 }
 .topbar{
-  height:76px;
   display:flex;
   align-items:center;
   justify-content:space-between;
-  padding:0 28px;
-  background:linear-gradient(#0c191bcc,transparent);
-  gap:20px
+  background:linear-gradient(#0c191bcc,transparent)
 }
 .identity{
   display:flex;
@@ -133,12 +127,6 @@ canvas#world{
   border-radius:50%;
   font-size:20px
 }
-.vitals{
-  position:absolute;
-  top:86px;
-  left:max(28px,env(safe-area-inset-left));
-  width:185px
-}
 .meter{
   display:flex;
   gap:8px;
@@ -180,11 +168,7 @@ canvas#world{
   font-size:10px
 }
 .objective{
-  position:absolute;
-  top:91px;
-  right:max(28px,env(safe-area-inset-right));
   text-align:right;
-  max-width:220px;
   text-shadow:0 2px 8px #000
 }
 .objective small{
@@ -206,10 +190,6 @@ canvas#world{
   line-height:1.5
 }
 .bottom-nav{
-  position:absolute;
-  bottom:24px;
-  left:50%;
-  transform:translateX(-50%);
   display:flex;
   border:1px solid var(--border);
   background:#11221fe8;
@@ -219,9 +199,7 @@ canvas#world{
 .bottom-nav button{
   border:0;
   background:transparent;
-  padding:11px 16px;
-  font-size:18px;
-  min-width:66px
+  font-size:18px
 }
 .bottom-nav span{
   display:block;
@@ -230,20 +208,11 @@ canvas#world{
   color:#c5c8b2
 }
 .desktop-hint{
-  position:absolute;
-  bottom:5px;
-  left:50%;
-  transform:translateX(-50%);
   font-size:9px;
   color:#adb8a0;
   white-space:nowrap
 }
 #joystick{
-  position:absolute;
-  bottom:40px;
-  left:max(38px,calc(env(safe-area-inset-left) + 10px));
-  width:128px;
-  height:128px;
   display:grid;
   place-items:center;
   touch-action:none
@@ -269,15 +238,7 @@ canvas#world{
   letter-spacing:2px;
   font-size:8px
 }
-.combat{
-  position:absolute;
-  bottom:26px;
-  right:max(28px,env(safe-area-inset-right));
-  width:222px;
-  height:172px
-}
 .action{
-  position:absolute;
   border-radius:50%;
   box-shadow:0 4px 22px #0003;
   font-size:12px;
@@ -289,48 +250,22 @@ canvas#world{
   margin-top:5px
 }
 .attack{
-  width:84px;
-  height:84px;
-  right:0;
-  bottom:0;
   background:#786340e8;
   border-color:#dfc38e80;
   font-size:17px
 }
-.block{
-  width:70px;
-  height:70px;
-  left:12px;
-  bottom:0
-}
-
 .interact{
-  width:76px;
-  height:60px;
-  left:0;
-  top:17px;
   border-radius:22px;
   font-size:10px
 }
 .raid{
-  position:absolute;
-  left:50%;
-  top:76px;
-  transform:translateX(-50%);
   background:#5c2925e8;
   border:1px solid #ca806955;
   border-radius:6px;
-  padding:9px 16px;
   font-size:12px;
-  text-align:center;
-  max-width:42vw
+  text-align:center
 }
 .boss-hud{
-  position:absolute;
-  top:120px;
-  left:50%;
-  transform:translateX(-50%);
-  width:260px;
   text-align:center
 }
 .boss-hud small{
@@ -354,14 +289,8 @@ canvas#world{
   color:#e5c6ac
 }
 #toast{
-  position:absolute;
-  bottom:125px;
-  left:50%;
-  transform:translateX(-50%);
-  max-width:44vw;
   background:#10221fe8;
   border-radius:8px;
-  padding:10px 17px;
   font-size:12px;
   text-align:center;
   opacity:0;
@@ -369,18 +298,11 @@ canvas#world{
   line-height:1.5
 }
 .build-banner{
-  position:absolute;
-  top:175px;
-  left:50%;
-  transform:translateX(-50%);
   background:#132821ed;
   border:1px solid var(--border);
   border-radius:8px;
-  padding:8px 12px;
   display:flex;
   align-items:center;
-  gap:12px;
-  max-width:65vw;
   font-size:12px
 }
 .build-banner button{
@@ -612,10 +534,6 @@ canvas#world{
   margin:20px 0
 }
 @media(max-height:500px){
-  .topbar{
-    height:55px;
-    padding:0 18px
-  }
   .identity strong{
     font-size:13px;
     letter-spacing:2px
@@ -636,16 +554,6 @@ canvas#world{
     width:36px;
     height:36px
   }
-  .vitals{
-    top:59px;
-    left:max(19px,env(safe-area-inset-left));
-    width:155px
-  }
-  .objective{
-    top:64px;
-    right:max(19px,env(safe-area-inset-right));
-    max-width:190px
-  }
   .objective strong{
     font-size:15px;
     margin:4px 0
@@ -653,12 +561,7 @@ canvas#world{
   .objective span{
     font-size:10px
   }
-  .bottom-nav{
-    bottom:12px
-  }
   .bottom-nav button{
-    padding:8px 10px;
-    min-width:52px;
     font-size:15px
   }
   .bottom-nav span{
@@ -667,12 +570,6 @@ canvas#world{
   .desktop-hint{
     display:none
   }
-  #joystick{
-    width:108px;
-    height:108px;
-    bottom:27px;
-    left:max(30px,calc(env(safe-area-inset-left) + 8px))
-  }
   #stick{
     width:46px;
     height:46px
@@ -680,26 +577,6 @@ canvas#world{
   #joystick small{
     bottom:-16px
   }
-  .combat{
-    width:205px;
-    height:153px;
-    bottom:14px;
-    right:max(16px,env(safe-area-inset-right))
-  }
-  .attack{
-    width:76px;
-    height:76px
-  }
-  .block{
-    width:64px;
-    height:64px
-  }
-  .interact{
-    width:70px;
-    height:56px;
-    top:12px
-  }
-
   .panel{
     max-height:92dvh;
     padding:20px
@@ -717,21 +594,12 @@ canvas#world{
     margin-top:12px
   }
   .raid{
-    top:56px;
-    font-size:10px;
-    padding:6px 10px
-  }
-  .boss-hud{
-    top:96px;
-    width:210px
+    font-size:10px
   }
   #toast{
-    bottom:90px;
-    font-size:11px;
-    max-width:40vw
+    font-size:11px
   }
   .build-banner{
-    top:127px;
     font-size:10px
   }
   .cards{
@@ -747,9 +615,7 @@ canvas#world{
   .desktop-hint{
     display:none
   }
-  .action small{
-    font-size:0
-  }
+
   .block small{
     font-size:8px
   }
@@ -757,379 +623,417 @@ canvas#world{
     font-weight:500
   }
 }
-
 /* Midgard: carved timber, iron and restrained bronze. */
 :root{
   --cream:#e8dcc2;
   --gold:#caa469;
   --dim:#a9aaa0;
   --ink:#10191b;
-  --border:#b99a623b}
-  button{
-    background:linear-gradient(145deg,#29302d,#172023);
-    border-color:#aa8b514d;
-    border-radius:3px}
-    .panel{
-      background:repeating-linear-gradient(0deg,#aa805307 0 1px,transparent 1px 7px),linear-gradient(120deg,#27302b,#111c21 65%);
-      border:1px solid #a88d58;
-      box-shadow:0 0 0 5px #101719,0 0 0 6px #a88d5844,0 24px 90px #000b;
-      border-radius:4px;
-      max-width:950px}
-      .panel-head{
-        border-bottom:1px solid #a88d5855;
-        padding-bottom:14px}
-        .panel h1,.panel h2,.identity strong{
-          font-family:Georgia,'Times New Roman',serif;
-          letter-spacing:.14em}
-          .panel h1{
-            color:#e3c38d;
-            text-shadow:0 2px #000;
-            font-size:58px;
-            text-transform:uppercase}
-            .panel h2{
-              color:#dcc396}
-              .panel p{
-                line-height:1.55}
-                .primary{
-                  background:linear-gradient(#82693f,#594a32);
-                  border-color:#cbaa6b;
-                  color:#fff0cf}
-                  .nordic-crest{
-                    width:106px;
-                    height:106px;
-                    margin:0 auto 18px;
-                    border:1px solid #b6975e;
-                    outline:1px solid #b6975e55;
-                    outline-offset:7px;
-                    border-radius:50%;
-                    position:relative;
-                    background:radial-gradient(#b89b432b,transparent 70%)}
-                    .nordic-crest::before,.nordic-crest::after{
-                      content:'';
-                      position:absolute;
-                      inset:18px;
-                      border:1px solid #c4a36577;
-                      transform:rotate(45deg)}
-                      .nordic-crest::after{
-                        transform:rotate(0)}
-                        .nordic-crest span{
-                          position:relative;
-                          font-size:60px;
-                          line-height:85px;
-                          color:#e1bc7e;
-                          z-index:1}
-                          .nordic-crest i{
-                            display:block;
-                            font-size:9px;
-                            letter-spacing:4px;
-                            color:#cfb77e;
-                            font-style:normal}
-                            .eyebrow{
-                              color:#bda778;
-                              letter-spacing:.25em}
-                              .features span{
-                                display:flex;
-                                align-items:center;
-                                gap:7px}
-                                .icon{
-                                  width:28px;
-                                  height:28px;
-                                  display:inline-block;
-                                  vertical-align:middle;
-                                  flex-shrink:0;
-                                  color:#d8bb81;
-                                  filter:drop-shadow(0 2px 1px #0008);
-                                  pointer-events:none}
-                                  .resource-chip{
-                                    display:inline-flex;
-                                    align-items:center;
-                                    gap:4px;
-                                    margin:2px 4px 2px 0;
-                                    color:#d5c9ae;
-                                    white-space:nowrap;
-                                    font-size:12px}
-                                    .resource-chip .icon{
-                                      width:20px;
-                                      height:20px}
-                                      .stock{
-                                        display:flex;
-                                        gap:5px;
-                                        flex-wrap:wrap}
-                                        .cards{
-                                          grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
-                                          .card{
-                                            background:linear-gradient(145deg,#2c342d88,#142024cc);
-                                            border-radius:3px;
-                                            border-color:#b2986240;
-                                            position:relative}
-                                            .card h3{
-                                              color:#e4c997}
-                                              .recipe-icon{
-                                                height:60px;
-                                                border-bottom:1px solid #bd995b33;
-                                                margin-bottom:12px;
-                                                display:flex;
-                                                align-items:center;
-                                                justify-content:center;
-                                                background:radial-gradient(ellipse,#b99c4222,transparent 65%)}
-                                                .recipe-icon .icon{
-                                                  width:48px;
-                                                  height:48px}
-                                                  .inventory-layout{
-                                                    display:grid;
-                                                    grid-template-columns:minmax(0,1fr) 240px;
-                                                    gap:22px;
-                                                    align-items:start}
-                                                    .inventory-grid{
-                                                      display:grid;
-                                                      grid-template-columns:repeat(6,minmax(0,1fr));
-                                                      gap:7px;
-                                                      align-content:start}
-                                                      .item-slot{
-                                                        position:relative;
-                                                        min-width:0;
-                                                        aspect-ratio:1;
-                                                        display:flex;
-                                                        align-items:center;
-                                                        justify-content:center;
-                                                        flex-direction:column;
-                                                        padding:6px 3px 12px;
-                                                        background:radial-gradient(ellipse at 50% 30%,#4e514030,#111b20 80%);
-                                                        border:1px solid #9e855344;
-                                                        border-radius:3px}
-                                                        .item-slot .icon{
-                                                          width:40px;
-                                                          height:40px}
-                                                          .item-slot span{
-                                                            font-size:9px;
-                                                            max-width:100%;
-                                                            overflow:hidden;
-                                                            text-overflow:ellipsis;
-                                                            white-space:nowrap;
-                                                            margin-top:3px}
-                                                            .item-slot b{
-                                                              position:absolute;
-                                                              bottom:3px;
-                                                              right:5px;
-                                                              font-size:11px;
-                                                              color:#e7d6af}
-                                                              .item-slot i{
-                                                                position:absolute;
-                                                                top:3px;
-                                                                left:3px;
-                                                                font-size:7px;
-                                                                color:#a8d3b9;
-                                                                font-style:normal}
-                                                                .item-slot.empty{
-                                                                  color:#76684c55;
-                                                                  background:#09141866}
-                                                                  .item-slot:disabled{
-                                                                    opacity:1;
-                                                                    cursor:default}
-                                                                    .selected,.equipped{
-                                                                      border-color:#e2bd75!important;
-                                                                      box-shadow:inset 0 0 14px #b9a06322}
-                                                                      .item-detail{
-                                                                        padding:20px;
-                                                                        background:#0e191dbb;
-                                                                        border:1px solid #a48b5144;
-                                                                        min-height:290px}
-                                                                        .item-detail .detail-icon{
-                                                                          display:block;
-                                                                          width:65px;
-                                                                          height:65px;
-                                                                          margin:4px auto 20px}
-                                                                          .item-detail h3{
-                                                                            font-family:Georgia,serif;
-                                                                            font-size:22px;
-                                                                            color:#e4c997;
-                                                                            margin:9px 0}
-                                                                            .item-detail p{
-                                                                              font-size:12px}
-                                                                              .item-detail small{
-                                                                                font-size:10px;
-                                                                                line-height:1.5}
-                                                                                .item-detail button.primary{
-                                                                                  width:100%;
-                                                                                  padding:10px}
-                                                                                  .detail-emblem{
-                                                                                    font-size:64px;
-                                                                                    color:#96855e;
-                                                                                    text-align:center;
-                                                                                    margin:20px}
-                                                                                    .slot-assign{
-                                                                                      display:grid;
-                                                                                      grid-template-columns:repeat(5,1fr);
-                                                                                      gap:5px;
-                                                                                      margin:8px 0}
-                                                                                      .slot-assign button{
-                                                                                        min-height:34px;
-                                                                                        padding:3px}
-                                                                                        .quickbar{
-                                                                                          position:absolute;
-                                                                                          bottom:87px;
-                                                                                          left:50%;
-                                                                                          transform:translateX(-50%);
-                                                                                          display:grid;
-                                                                                          grid-template-columns:repeat(9,44px);
-                                                                                          gap:4px;
-                                                                                          padding:5px;
-                                                                                          background:#0d171be8;
-                                                                                          border:1px solid #b2965b66;
-                                                                                          border-radius:3px;
-                                                                                          pointer-events:auto}
-                                                                                          .quick-slot{
-                                                                                            position:relative;
-                                                                                            width:44px;
-                                                                                            height:48px;
-                                                                                            padding:7px 3px 5px;
-                                                                                            touch-action:none;
-                                                                                            background:linear-gradient(140deg,#394036,#182328)}
-                                                                                            .quick-slot .icon{
-                                                                                              width:29px;
-                                                                                              height:29px}
-                                                                                              .quick-slot kbd{
-                                                                                                position:absolute;
-                                                                                                top:1px;
-                                                                                                left:3px;
-                                                                                                font:9px Georgia,serif;
-                                                                                                color:#c0b293}
-                                                                                                .quick-slot b{
-                                                                                                  position:absolute;
-                                                                                                  bottom:1px;
-                                                                                                  right:3px;
-                                                                                                  font-size:9px;
-                                                                                                  color:#e4d4ac}
-                                                                                                  .quick-slot em{
-                                                                                                    position:absolute;
-                                                                                                    inset:0;
-                                                                                                    display:grid;
-                                                                                                    place-items:center;
-                                                                                                    background:#10212ad4;
-                                                                                                    color:#fff0cf;
-                                                                                                    font-size:12px;
-                                                                                                    font-style:normal}
-                                                                                                    .quick-slot.depleted .icon{
-                                                                                                      opacity:.25}
-                                                                                                      .empty-rune{
-                                                                                                        color:#9d895744}
-                                                                                                        .bottom-nav{
-                                                                                                          border-radius:3px;
-                                                                                                          background:#111c20ed;
-                                                                                                          border-color:#b79a5c55}
-                                                                                                          .bottom-nav .icon{
-                                                                                                            width:23px;
-                                                                                                            height:23px}
-                                                                                                            .topbar{
-                                                                                                              background:linear-gradient(#0c151aeb,transparent)}
-                                                                                                              .rune{
-                                                                                                                color:#caaa70}
-                                                                                                                .meter{
-                                                                                                                  filter:drop-shadow(0 2px 3px #0009)}
-                                                                                                                  .action{
-                                                                                                                    background:radial-gradient(circle at 50% 25%,#445044dd,#152125ed);
-                                                                                                                    border-color:#c6a26477}
-                                                                                                                    .action .icon{
-                                                                                                                      width:31px;
-                                                                                                                      height:31px}
-                                                                                                                      .attack{
-                                                                                                                        background:radial-gradient(circle at 40% 20%,#9a7d46,#4c402e);
-                                                                                                                        border:2px solid #c9a563}
-                                                                                                                        .attack .icon{
-                                                                                                                          width:39px;
-                                                                                                                          height:39px}
-                                                                                                                          .interact small{
-                                                                                                                            font-size:8px;
-                                                                                                                            margin-top:1px}
-                                                                                                                            .interact .icon{
-                                                                                                                              width:22px;
-                                                                                                                              height:22px}
-                                                                                                                              .build-banner{
-                                                                                                                                border-radius:3px;
-                                                                                                                                background:#111e22ed;
-                                                                                                                                max-width:70vw;
-                                                                                                                                flex-wrap:wrap;
-                                                                                                                                justify-content:center}
-                                                                                                                                .build-banner button{
-                                                                                                                                  min-height:36px}
-                                                                                                                                  .build-banner .resource-chip{
-                                                                                                                                    font-size:11px}
-                                                                                                                                    @media(max-height:500px){
-                                                                                                                                      .panel h1{
-                                                                                                                                        font-size:38px}
-                                                                                                                                        .nordic-crest{
-                                                                                                                                          width:70px;
-                                                                                                                                          height:70px;
-                                                                                                                                          margin:0 auto 12px}
-                                                                                                                                          .nordic-crest span{
-                                                                                                                                            font-size:40px;
-                                                                                                                                            line-height:52px}
-                                                                                                                                            .nordic-crest i{
-                                                                                                                                              font-size:7px;
-                                                                                                                                              letter-spacing:2px}
-                                                                                                                                              .nordic-crest::before,.nordic-crest::after{
-                                                                                                                                                inset:13px}
-                                                                                                                                                .quickbar{
-                                                                                                                                                  bottom:72px;
-                                                                                                                                                  grid-template-columns:repeat(9,34px);
-                                                                                                                                                  gap:2px;
-                                                                                                                                                  padding:4px}
-                                                                                                                                                  .quick-slot{
-                                                                                                                                                    width:34px;
-                                                                                                                                                    height:40px}
-                                                                                                                                                    .quick-slot .icon{
-                                                                                                                                                      width:25px;
-                                                                                                                                                      height:25px}
-                                                                                                                                                      .bottom-nav{
-                                                                                                                                                        bottom:max(12px,env(safe-area-inset-bottom))}
-                                                                                                                                                        .bottom-nav button{
-                                                                                                                                                          padding:6px 13px}
-                                                                                                                                                          .bottom-nav .icon{
-                                                                                                                                                            width:20px;
-                                                                                                                                                            height:20px}
-                                                                                                                                                            .inventory-layout{
-                                                                                                                                                              grid-template-columns:minmax(0,1fr) 220px;
-                                                                                                                                                              gap:14px}
-                                                                                                                                                              .item-slot .icon{
-                                                                                                                                                                width:32px;
-                                                                                                                                                                height:32px}
-                                                                                                                                                                .item-slot{
-                                                                                                                                                                  padding-top:4px}
-                                                                                                                                                                  .item-detail{
-                                                                                                                                                                    padding:12px}
-                                                                                                                                                                    .item-detail .detail-icon{
-                                                                                                                                                                      width:42px;
-                                                                                                                                                                      height:42px;
-                                                                                                                                                                      margin:0 auto 10px}
-                                                                                                                                                                      .item-detail h3{
-                                                                                                                                                                        font-size:18px}
-                                                                                                                                                                        .inventory-grid{
-                                                                                                                                                                          gap:5px}
-                                                                                                                                                                          .build-banner{
-                                                                                                                                                                            top:120px;
-                                                                                                                                                                            bottom:auto;
-                                                                                                                                                                            max-width:65vw;
-                                                                                                                                                                            padding:6px 10px}
-                                                                                                                                                                          }
-                                                                                                                                                                          @media(max-width:740px) and (orientation:landscape){
-                                                                                                                                                                            .quickbar{
-                                                                                                                                                                              left:47%;
-                                                                                                                                                                              grid-template-columns:repeat(9,29px);
-                                                                                                                                                                              gap:1px}
-                                                                                                                                                                              .quick-slot{
-                                                                                                                                                                                width:29px}
-                                                                                                                                                                                .combat{
-                                                                                                                                                                                  width:164px}
-                                                                                                                                                                                  .block{
-                                                                                                                                                                                    left:0}
-                                                                                                                                                                                    .interact{
-                                                                                                                                                                                      left:5px}
-                                                                                                                                                                                      .bottom-nav{
-                                                                                                                                                                                        left:47%}
-                                                                                                                                                                                        .bottom-nav button{
-                                                                                                                                                                                          padding:6px 9px}
-                                                                                                                                                                                          .inventory-layout{
-                                                                                                                                                                                            grid-template-columns:minmax(0,1fr) 190px}
-                                                                                                                                                                                            .inventory-grid{
-                                                                                                                                                                                              grid-template-columns:repeat(5,minmax(0,1fr))}
-                                                                                                                                                                                            }
+  --border:#b99a623b
+}
+button{
+  background:linear-gradient(145deg,#29302d,#172023);
+  border-color:#aa8b514d;
+  border-radius:3px
+}
+.panel{
+  background:repeating-linear-gradient(0deg,#aa805307 0 1px,transparent 1px 7px),linear-gradient(120deg,#27302b,#111c21 65%);
+  border:1px solid #a88d58;
+  box-shadow:0 0 0 5px #101719,0 0 0 6px #a88d5844,0 24px 90px #000b;
+  border-radius:4px;
+  max-width:950px
+}
+.panel-head{
+  border-bottom:1px solid #a88d5855;
+  padding-bottom:14px
+}
+.panel h1,.panel h2,.identity strong{
+  font-family:Georgia,'Times New Roman',serif;
+  letter-spacing:.14em
+}
+.panel h1{
+  color:#e3c38d;
+  text-shadow:0 2px #000;
+  font-size:58px;
+  text-transform:uppercase
+}
+.panel h2{
+  color:#dcc396
+}
+.panel p{
+  line-height:1.55
+}
+.primary{
+  background:linear-gradient(#82693f,#594a32);
+  border-color:#cbaa6b;
+  color:#fff0cf
+}
+.nordic-crest{
+  width:106px;
+  height:106px;
+  margin:0 auto 18px;
+  border:1px solid #b6975e;
+  outline:1px solid #b6975e55;
+  outline-offset:7px;
+  border-radius:50%;
+  position:relative;
+  background:radial-gradient(#b89b432b,transparent 70%)
+}
+.nordic-crest::before,.nordic-crest::after{
+  content:'';
+  position:absolute;
+  inset:18px;
+  border:1px solid #c4a36577;
+  transform:rotate(45deg)
+}
+.nordic-crest::after{
+  transform:rotate(0)
+}
+.nordic-crest span{
+  position:relative;
+  font-size:60px;
+  line-height:85px;
+  color:#e1bc7e;
+  z-index:1
+}
+.nordic-crest i{
+  display:block;
+  font-size:9px;
+  letter-spacing:4px;
+  color:#cfb77e;
+  font-style:normal
+}
+.eyebrow{
+  color:#bda778;
+  letter-spacing:.25em
+}
+.features span{
+  display:flex;
+  align-items:center;
+  gap:7px
+}
+.icon{
+  width:28px;
+  height:28px;
+  display:inline-block;
+  vertical-align:middle;
+  flex-shrink:0;
+  color:#d8bb81;
+  filter:drop-shadow(0 2px 1px #0008);
+  pointer-events:none
+}
+.resource-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  margin:2px 4px 2px 0;
+  color:#d5c9ae;
+  white-space:nowrap;
+  font-size:12px
+}
+.resource-chip .icon{
+  width:20px;
+  height:20px
+}
+.stock{
+  display:flex;
+  gap:5px;
+  flex-wrap:wrap
+}
+.cards{
+  grid-template-columns:repeat(auto-fit,minmax(170px,1fr))
+}
+.card{
+  background:linear-gradient(145deg,#2c342d88,#142024cc);
+  border-radius:3px;
+  border-color:#b2986240;
+  position:relative
+}
+.card h3{
+  color:#e4c997
+}
+.recipe-icon{
+  height:60px;
+  border-bottom:1px solid #bd995b33;
+  margin-bottom:12px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:radial-gradient(ellipse,#b99c4222,transparent 65%)
+}
+.recipe-icon .icon{
+  width:48px;
+  height:48px
+}
+.inventory-layout{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 240px;
+  gap:22px;
+  align-items:start
+}
+.inventory-grid{
+  display:grid;
+  grid-template-columns:repeat(6,minmax(0,1fr));
+  gap:7px;
+  align-content:start
+}
+.item-slot{
+  position:relative;
+  min-width:0;
+  aspect-ratio:1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  padding:6px 3px 12px;
+  background:radial-gradient(ellipse at 50% 30%,#4e514030,#111b20 80%);
+  border:1px solid #9e855344;
+  border-radius:3px
+}
+.item-slot .icon{
+  width:40px;
+  height:40px
+}
+.item-slot span{
+  font-size:9px;
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  margin-top:3px
+}
+.item-slot b{
+  position:absolute;
+  bottom:3px;
+  right:5px;
+  font-size:11px;
+  color:#e7d6af
+}
+.item-slot i{
+  position:absolute;
+  top:3px;
+  left:3px;
+  font-size:7px;
+  color:#a8d3b9;
+  font-style:normal
+}
+.item-slot.empty{
+  color:#76684c55;
+  background:#09141866
+}
+.item-slot:disabled{
+  opacity:1;
+  cursor:default
+}
+.selected,.equipped{
+  border-color:#e2bd75!important;
+  box-shadow:inset 0 0 14px #b9a06322
+}
+.item-detail{
+  padding:20px;
+  background:#0e191dbb;
+  border:1px solid #a48b5144;
+  min-height:290px
+}
+.item-detail .detail-icon{
+  display:block;
+  width:65px;
+  height:65px;
+  margin:4px auto 20px
+}
+.item-detail h3{
+  font-family:Georgia,serif;
+  font-size:22px;
+  color:#e4c997;
+  margin:9px 0
+}
+.item-detail p{
+  font-size:12px
+}
+.item-detail small{
+  font-size:10px;
+  line-height:1.5
+}
+.item-detail button.primary{
+  width:100%;
+  padding:10px
+}
+.detail-emblem{
+  font-size:64px;
+  color:#96855e;
+  text-align:center;
+  margin:20px
+}
+.slot-assign{
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  gap:5px;
+  margin:8px 0
+}
+.slot-assign button{
+  min-height:34px;
+  padding:3px
+}
+.quickbar{
+  display:grid;
+  background:#0d171be8;
+  border:1px solid #b2965b66;
+  border-radius:3px;
+  pointer-events:auto
+}
+.quick-slot{
+  touch-action:none;
+  background:linear-gradient(140deg,#394036,#182328)
+}
+.quick-slot .icon{
+  width:29px;
+  height:29px
+}
+.quick-slot kbd{
+  position:absolute;
+  top:1px;
+  left:3px;
+  font:9px Georgia,serif;
+  color:#c0b293
+}
+.quick-slot b{
+  position:absolute;
+  bottom:1px;
+  right:3px;
+  font-size:9px;
+  color:#e4d4ac
+}
+.quick-slot em{
+  position:absolute;
+  inset:0;
+  display:grid;
+  place-items:center;
+  background:#10212ad4;
+  color:#fff0cf;
+  font-size:12px;
+  font-style:normal
+}
+.quick-slot.depleted .icon{
+  opacity:.25
+}
+.empty-rune{
+  color:#9d895744
+}
+.bottom-nav{
+  border-radius:3px;
+  background:#111c20ed;
+  border-color:#b79a5c55
+}
+.bottom-nav .icon{
+  width:23px;
+  height:23px
+}
+.topbar{
+  background:linear-gradient(#0c151aeb,transparent)
+}
+.rune{
+  color:#caaa70
+}
+.meter{
+  filter:drop-shadow(0 2px 3px #0009)
+}
+.action{
+  background:radial-gradient(circle at 50% 25%,#445044dd,#152125ed);
+  border-color:#c6a26477
+}
+.action .icon{
+  width:31px;
+  height:31px
+}
+.attack{
+  background:radial-gradient(circle at 40% 20%,#9a7d46,#4c402e);
+  border:2px solid #c9a563
+}
+.attack .icon{
+  width:39px;
+  height:39px
+}
+.interact small{
+  font-size:8px;
+  margin-top:1px
+}
+.interact .icon{
+  width:22px;
+  height:22px
+}
+.build-banner{
+  border-radius:3px;
+  background:#111e22ed;
+  flex-wrap:wrap;
+  justify-content:center
+}
+.build-banner button{
+  min-height:36px
+}
+.build-banner .resource-chip{
+  font-size:11px
+}
+@media(max-height:500px){
+  .panel h1{
+    font-size:38px
+  }
+  .nordic-crest{
+    width:70px;
+    height:70px;
+    margin:0 auto 12px
+  }
+  .nordic-crest span{
+    font-size:40px;
+    line-height:52px
+  }
+  .nordic-crest i{
+    font-size:7px;
+    letter-spacing:2px
+  }
+  .nordic-crest::before,.nordic-crest::after{
+    inset:13px
+  }
+
+  .quick-slot .icon{
+    width:25px;
+    height:25px
+  }
+  .bottom-nav .icon{
+    width:20px;
+    height:20px
+  }
+  .inventory-layout{
+    grid-template-columns:minmax(0,1fr) 220px;
+    gap:14px
+  }
+  .item-slot .icon{
+    width:32px;
+    height:32px
+  }
+  .item-slot{
+    padding-top:4px
+  }
+  .item-detail{
+    padding:12px
+  }
+  .item-detail .detail-icon{
+    width:42px;
+    height:42px;
+    margin:0 auto 10px
+  }
+  .item-detail h3{
+    font-size:18px
+  }
+  .inventory-grid{
+    gap:5px
+  }
+}
+@media(max-width:740px) and (orientation:landscape){
+
+  .inventory-layout{
+    grid-template-columns:minmax(0,1fr) 190px
+  }
+  .inventory-grid{
+    grid-template-columns:repeat(5,minmax(0,1fr))
+  }
+}

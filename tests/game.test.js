@@ -30,7 +30,8 @@ test('fixed forest and renewable resources; gathering is only possible nearby',(
   const r=a.resources.find(r=>r.id==='start10');
   a.player.x=r.x;
   a.player.y=r.y;
-  G.interact(a);
+  a.enemies=[];
+  for(let i=0;i<G.GATHER.wood.hits;i++){G.interact(a);advance(a,.6);}
   assert.equal(a.player.inv.wood,4);
   assert.ok(r.ready>a.time);
   advance(a,241);

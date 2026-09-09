@@ -104,6 +104,8 @@ export const FOODS = {
     sat:2700,buff:900,hp:40
   }
 };
+export const GATHER={wood:{hits:4,label:'Рубить',yield:4},stone:{hits:5,label:'Добывать',yield:3},berry:{hits:1,label:'Собрать',yield:3}};
+export const GATHER_RANGE=1.65;
 export const SKILLS = {
   sword:'Меч', bow:'Лук', guard:'Защита'
 };
@@ -417,30 +419,30 @@ export function context(g) {
   const p=g.player;
   const candidates=[...g.graves.map(o=>({
     ...o,kind:'grave',label:'Вернуть вещи'
-  })),...g.parts.filter(o=>o.type!=='floor').map(o=>({
+  })),...g.parts.filter(o=>o.hp>0&&['door','chest','bed','fire','bench','kitchen'].includes(o.type)).map(o=>({
     ...o,kind:'part',label:o.type==='door'?(o.open?'Закрыть дверь':'Открыть дверь'):PARTS[o.type].name
   })),...NOTES.map((o,i)=>({
     ...o,id:i,kind:'note',label:'Прочитать'
-  })),...g.resources.filter(r=>r.ready<=g.time&&!g.parts.some(p=>p.x===r.x&&p.y===r.y)).map(o=>({
-    ...o,kind:'resource',label:`Собрать: ${ITEMS[o.type]}`
+  })),...g.resources.filter(r=>!g.parts.some(p=>p.x===r.x&&p.y===r.y)).map(o=>({
+    ...o,kind:'resource',label:o.ready>g.time?`${o.type==='wood'?'Пень':ITEMS[o.type]} · ${Math.ceil(o.ready-g.time)} с`:`${GATHER[o.type].label}: ${ITEMS[o.type]}`
   }))];
   const proximity=o=>o.kind==='part'&&PARTS[o.type].solid?wallDistance(o,p):distance(o,p);
-  return candidates.filter(o=>proximity(o)<2).sort((a,b)=>proximity(a)-proximity(b)||(a.type==='door'?-1:b.type==='door'?1:0))[0]||null;
+  return candidates.filter(o=>proximity(o)<(o.kind==='resource'?GATHER_RANGE:2)&&(o.kind==='part'||lineClear(g,p,o))).sort((a,b)=>{
+    const rank=o=>o.kind==='resource'&&o.ready>g.time?2:o.kind==='resource'&&o.id===p.harvest?.id?0:1;
+    return rank(a)-rank(b)||proximity(a)-proximity(b)||(a.type==='door'?-1:b.type==='door'?1:0);
+  })[0]||null;
 }
 export function interact(g) {
   const c=context(g),p=g.player;
-  if(!c||p.dead)return null;
+  if(p.dead||g.paused)return null;
+  if(!c){tell(g,'Подойдите к ресурсу или предмету ближе.');return null;}
   if(c.kind==='resource'){
     const r=g.resources.find(r=>r.id===c.id);
-    r.ready=g.time+240;
-    const n=r.type==='wood'?4:r.type==='stone'?3:3;
-    add(p.inv,r.type,n);
-    if(r.type==='wood'&&hash(r.x+g.stats.gathered,r.y)>.6)add(p.inv,'resin',1);
-    g.stats.gathered++;
-    g.effects.push({
-      x:c.x,y:c.y,text:`+${n} ${ITEMS[r.type]}`,color:'#f2da96',life:1.4
-    });
-    return 'gather';
+    if(r.ready>g.time){tell(g,`Ресурс истощён. Восстановится через ${Math.ceil(r.ready-g.time)} с.`);return null;}
+    if(p.harvest||p.attack>0)return null;
+    if(r.type==='berry'){finishGather(g,r);return 'gather';}
+    const d=distance(p,r);if(d>.001)p.facing={x:(r.x-p.x)/d,y:(r.y-p.y)/d};
+    p.harvest={id:r.id,type:r.type,started:g.time,hit:false,facing:{...p.facing}};return 'harvest';
   }
   if(c.kind==='grave'){
     const grave=g.graves.find(v=>v.id===c.id);
@@ -476,6 +478,23 @@ export function interact(g) {
   if(['bench','fire','kitchen'].includes(c.type))return 'craft';
   return null;
 }
+function finishGather(g,r){
+  const n=GATHER[r.type].yield;r.hits=0;r.ready=g.time+240;
+  add(g.player.inv,r.type,n);
+  if(r.type==='wood'&&hash(r.x+g.stats.gathered,r.y)>.6)add(g.player.inv,'resin',1);
+  g.stats.gathered++;
+  g.effects.push({x:r.x,y:r.y,text:`+${n} ${ITEMS[r.type]}`,color:'#f2da96',life:1.4});
+}
+function updateHarvest(g){
+  const p=g.player,h=p.harvest;if(!h)return;
+  const age=g.time-h.started,r=g.resources.find(r=>r.id===h.id);
+  if(!r||p.dead||(r.ready>g.time&&!h.hit)||distance(p,r)>=GATHER_RANGE||!lineClear(g,p,r)||g.parts.some(part=>part.x===r.x&&part.y===r.y)){p.harvest=null;return;}
+  if(age>=.22&&!h.hit){
+    h.hit=true;r.hits=(r.hits||0)+1;r.struckAt=g.time;
+    if(r.hits>=GATHER[r.type].hits)finishGather(g,r);
+  }
+  if(age>=.55)p.harvest=null;
+}
 export function storeItems(g,withdraw=false) {
   if(!station(g,'chest'))return tell(g,'Подойдите к свободному сундуку.'),false;
   const src=withdraw?g.storage:g.player.inv,dst=withdraw?g.player.inv:g.storage;
@@ -489,7 +508,7 @@ export function storeItems(g,withdraw=false) {
 }
 export function attack(g) {
   const p=g.player,weapon=p.inv[p.weapon]?p.weapon:'hands',cost=weapon==='bow'?12:15;
-  if(p.dead||p.attack>0||p.stamina<cost)return false;
+  if(p.dead||p.harvest||p.attack>0||p.stamina<cost)return false;
   if(weapon==='bow'&&!p.inv.arrow)return tell(g,'Нет стрел. Создайте их у верстака.'),false;
   const range=weapon==='bow'?9:MELEE[weapon].reach+.16;
   const target=g.enemies.filter(e=>!e.dead&&distance(e,p)<=range&&lineClear(g,p,e)).sort((a,b)=>distance(a,p)-distance(b,p))[0];
@@ -572,7 +591,7 @@ export function die(g) {
   });
   p.inv={
   };
-  p.weapon='hands';p.swing=null;
+  p.weapon='hands';p.swing=null;p.harvest=null;
   for(const e of g.enemies)if(e.type==='boss'&&!e.dead){
     Object.assign(e,makeEnemy('boss',BOSS_POS.x,BOSS_POS.y,'boss'));
   }
@@ -583,7 +602,7 @@ export function respawn(g,home=false) {
   const bed=g.parts.find(p=>p.type==='bed'&&p.hp>0);
   const pos=home&&bed?bed:START;
   Object.assign(g.player,{
-    x:pos.x,y:pos.y,hp:100,stamina:100,food:300,buff:0,foodBonus:0,dead:false,attack:0
+    x:pos.x,y:pos.y,hp:100,stamina:100,food:300,buff:0,foodBonus:0,dead:false,attack:0,harvest:null
   });
   tell(g,home&&bed?'Вы вернулись домой.':'Вы вернулись к первому камню.');
   return true;
@@ -722,6 +741,7 @@ export function tick(g,dt,input={
       startRaid(g);
     }
   }
+  updateHarvest(g);
   resolveSwing(g,g.time-dt);
   for(const e of g.enemies){
     updateEnemy(g,e,dt);
@@ -753,7 +773,7 @@ export function loadGame(raw) {
   if(g.home!==null&&!position(g.home))fail();
   if(!array(g.parts,750)||!array(g.resources,5000)||!array(g.enemies,500)||!array(g.graves,500)||!array(g.notes,NOTES.length))fail();
   for(const part of g.parts)if(!Object.hasOwn(PARTS,part.type)||!position(part)||!number(part.hp,0,PARTS[part.type].hp)||!number(part.id)||(part.edge!==undefined&&(!Number.isInteger(part.edge)||part.edge<0||part.edge>5)))fail();
-  for(const r of g.resources)if(!position(r)||!['wood','stone','berry'].includes(r.type)||!number(r.ready)||typeof r.id!=='string')fail();
+  for(const r of g.resources)if(!position(r)||!['wood','stone','berry'].includes(r.type)||!number(r.ready)||typeof r.id!=='string'||(r.hits!==undefined&&(!Number.isInteger(r.hits)||!number(r.hits,0,GATHER[r.type].hits-1))))fail();
   for(const e of g.enemies){
     if(!Object.hasOwn(enemyData,e.type)||!position(e)||!position(e.origin)||!number(e.hp,-1000,1000)||!number(e.maxHp,1,1000)||!number(e.speed,0,10)||!number(e.damage,0,100)||!['idle','windup'].includes(e.phase)||typeof e.dead!=='boolean')fail();
     for(const k of ['timer','cooldown','stun','respawnAt','attackIndex'])if(!number(e[k],k==='timer'?-.1:0))fail();
@@ -762,7 +782,7 @@ export function loadGame(raw) {
   if(!g.notes.every(n=>Number.isInteger(n)&&n>=0&&n<NOTES.length)||!number(g.nextId,1)||!number(g.raidDay)||!number(g.raidWarning,-1)||typeof g.raidPending!=='boolean'||typeof g.bossDefeated!=='boolean')fail();
   if(!g.stats||!['gathered','crafted','kills','nights'].every(k=>number(g.stats[k])))fail();
   if(g.grid!=='hex'&&g.home)g.legacySquarePlot=true;g.grid='hex';
-  delete p.parry; delete p.parryCooldown; p.swing=null;
+  delete p.parry; delete p.parryCooldown; p.swing=null;p.harvest=null;
   if(p.quickbar===undefined)p.quickbar=['sword','bow','berry','roast','stew','potion',null,null,null];
   if(!Array.isArray(p.quickbar)||p.quickbar.length!==9||!p.quickbar.every(k=>k===null||usableItem(k)))fail();
   if(p.potionCooldown===undefined)p.potionCooldown=0;

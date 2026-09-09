@@ -1,3 +1,5 @@
+import { applyHudLayout } from './layout.js';
+import { gameKey } from './keys.js';
 import { icon } from './icons.js';
 import { placementPlan, planCost } from './construction.js';
 import { hexRound, fromPlane, wallDistance } from './hex.js';
@@ -13,7 +15,7 @@ let game=G.createGame(),started=false,panelName=null,buildType=null,buildEdge=nu
 const input={
   x:0,y:0,block:false
 },keys=new Set();
-let touchBlock=false;
+let touchBlock=false,touchInteract=false;
 try{
   const raw=localStorage.getItem(SAVE_KEY);
   if(raw){
@@ -24,6 +26,14 @@ try{
 catch{
   saveError='Сохранение не удалось прочитать. Можно начать заново или импортировать копию.';
 }
+function layoutHud(){
+  const hud=$('hud'),style=typeof getComputedStyle==='function'?getComputedStyle(hud):null;
+  const inset=side=>Math.max(0,(parseFloat(style?.['padding'+side])||8)-8);
+  const h=Math.min(innerHeight,window.visualViewport?.height||innerHeight);
+  applyHudLayout(hud,innerWidth,h,{left:inset('Left'),right:inset('Right'),top:inset('Top'),bottom:inset('Bottom')});
+  if(document.documentElement?.style)document.documentElement.style.setProperty('--ui-height',h+'px');
+}
+layoutHud();window.visualViewport?.addEventListener('resize',layoutHud);
 function safeSave(){
   try{
     localStorage.setItem(SAVE_KEY,G.saveGame(game));
@@ -66,7 +76,7 @@ function renderQuickbar(){
   $('quickbar').innerHTML=p.quickbar.map((k,i)=>`<button data-slot="${i}" class="quick-slot ${k===p.weapon?'equipped':''} ${!p.inv[k]?'depleted':''}" title="${k?G.ITEMS[k]:'Пустая ячейка'} (${i+1})" aria-label="${k?G.ITEMS[k]:'Пустая ячейка'}, ${i+1}"><kbd>${i+1}</kbd>${k?icon(k):'<span class="empty-rune">·</span>'}<b>${k&&p.inv[k]||''}</b>${k==='potion'&&p.potionCooldown>0?`<em>${Math.ceil(p.potionCooldown)}с</em>`:''}</button>`).join('');
 }
 function title(text){
-  return `<div class="panel-head"><h2 id="panelTitle">${text}</h2><button data-action="close" aria-label="Закрыть">×</button></div>`;
+  return `<div class="panel-head"><h2 id="panelTitle">${text}</h2><button class="close-button" data-action="close" aria-label="Закрыть"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>`;
 }
 const pointerBindings=[];
 installGestureGuard([canvas, $('hud')]);
@@ -77,6 +87,7 @@ function clearInput(){
   input.y=0;
   input.block=false;
   touchBlock=false;
+  touchInteract=false;
   joy=null;
   buildDrag=null;
   $('stick').style.transform='';
@@ -326,7 +337,7 @@ function bindAction(id, down, up = () => {}) {
 }
 bindAction('attack', () => G.attack(game));
 
-bindAction('interact', doInteract);
+bindAction('interact',()=>{touchInteract=true;doInteract();},()=>{touchInteract=false;});
 bindAction('block', () => touchBlock = true, () => touchBlock = false);
 pointerBindings.push(bindPointer($('joystick'), {
   enabled: canControl,
@@ -371,7 +382,7 @@ pointerBindings.push(bindPointer(canvas, {
 }));
 window.addEventListener('keydown',e=>{
   if(['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName))return;
-  const k=e.key.toLowerCase();
+  const k=gameKey(e);
   if([' ','arrowup','arrowdown','arrowleft','arrowright','tab'].includes(k))e.preventDefault();
   if(k==='escape'){
     if(started&&!game.player.dead){
@@ -395,7 +406,7 @@ window.addEventListener('keydown',e=>{
   if(k==='m')openPanel('map');
   if(k==='c')openPanel('craft');
 });
-window.addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));
+window.addEventListener('keyup',e=>keys.delete(gameKey(e)));
 window.addEventListener('blur',()=>{
   clearInput();
   if(started&&!game.player.dead){
@@ -413,11 +424,13 @@ window.addEventListener('pagehide',()=>{
   if(started)safeSave();
 });
 window.addEventListener('resize',()=>{
+  layoutHud();
   renderer.resize();
   clearInput();
   pauseState();
 });
 function hud(){
+  $('hud').dataset.mode=buildType?'building':'playing';
   renderQuickbar();
   const p=game.player,max=G.maxHp(game),phase=game.time%G.DAY,night=G.isNight(game),context=G.context(game);
   $('hpFill').style.width=`${Math.max(0,p.hp/max*100)}%`;
@@ -437,7 +450,7 @@ function hud(){
   $('objectiveTitle').textContent=objective[0];
   $('objectiveText').textContent=objective[1];
   $('interact').innerHTML=icon(context?.kind==='resource'?context.type:'hand')+`<small>${context?escape(context.label):'Действие'} · E</small>`;
-  $('interact').disabled=!context;
+  $('interact').disabled=game.player.dead;
   $('attack').innerHTML=icon(p.weapon==='bow'&&p.inv.bow?'bow':'sword')+'<small>Удар · Пробел</small>';
 
   const invaders=G.invaders(game).length,raiders=game.enemies.filter(e=>e.raid&&!e.dead).length;
@@ -472,6 +485,7 @@ function frame(now){
   input.x=move.x;
   input.y=move.y;
   input.block=touchBlock||keys.has('q');
+  if(canControl()&&(touchInteract||keys.has('e'))){const target=G.context(game);if(target?.kind==='resource'&&target.ready<=game.time)G.interact(game);}
   G.tick(game,dt,input);
   if(game.player.dead&&panelName!=='death'){
     safeSave();
