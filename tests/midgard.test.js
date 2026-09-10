@@ -33,8 +33,8 @@ test('edge auto-selection uses the touched boundary and avoids duplicate segment
   assert.ok(G.buildBatch(g,next));
 });
 test('health potion recipe, capped healing, cooldown, pause, hotbar and save validation',()=>{
-  const g=house();g.parts=[{type:'fire',...G.START,hp:100,id:1}];g.player.inv={berry:9,resin:3,sword:1};g.player.hp=80;
-  assert.ok(G.craft(g,'potion'));assert.equal(g.player.inv.berry,6);
+  const g=house();g.parts=[{type:'fire',...G.START,hp:100,id:1}];g.player.inv={berry:9,herb:6,sword:1};g.player.hp=80;
+  assert.ok(G.craft(g,'potion'));assert.equal(g.player.inv.berry,7);
   assert.ok(G.assignQuickSlot(g,8,'potion'));assert.ok(G.useQuickSlot(g,8));assert.equal(g.player.hp,100);assert.equal(g.player.inv.potion,undefined);
   assert.ok(G.craft(g,'potion'));g.player.hp=20;assert.equal(G.useQuickSlot(g,8),false);assert.equal(g.player.inv.potion,1);
   g.paused=true;G.tick(g,.1);assert.equal(g.player.potionCooldown,20);g.paused=false;
@@ -44,8 +44,8 @@ test('health potion recipe, capped healing, cooldown, pause, hotbar and save val
   loaded.player.quickbar[2]='<script>';assert.throws(()=>G.loadGame(G.saveGame(loaded)));
 });
 test('landscape has impassable lakes/mountains, reachable landmarks and clustered enemies; old homes survive migration',()=>{
-  const g=G.createGame();assert.ok(g.resources.length<270);assert.ok(g.enemies.length>=23);
-  for(const camp of G.CAMPS)assert.ok(g.enemies.filter(e=>G.distance(e,camp)<3).length>=4);
+  const g=G.createGame();assert.ok(g.resources.length<600);assert.ok(g.enemies.length>=11);
+  for(let pack=0;pack<G.CAMPS.length;pack++){const count=g.enemies.filter(e=>e.pack===pack).length;assert.ok(count>=1&&count<=3);}
   for(const pos of [{x:23,y:19},{x:31,y:43}])assert.equal(G.canStand(g,pos.x,pos.y),false);
   for(const e of g.enemies)assert.ok(G.walkable(e.x,e.y));for(const r of g.resources)assert.ok(G.walkable(r.x,r.y));
   // Flood fill confirms obstacles have not cut off the boss, notes, or camp centres.

@@ -1,8 +1,9 @@
+import {drawNature,drawAnimal,drawDetailedResource} from './nature.js';
 import { wallEdges, toPlane, fromPlane, corners, hexRound, edgePoints } from './hex.js';
 import { ActorAnimator } from './animation.js';
 import { drawActor, drawBuilding, drawFloor } from './art.js';
 import {
-  GATHER, context, CAMPS, PARTS, SIZE,DAY,START,BOSS_POS,NOTES,hash,terrain,isTrail,isNight,distance,inHome,homeValue
+  SCENERY, GATHER, context, CAMPS, PARTS, SIZE,DAY,START,BOSS_POS,NOTES,hash,terrain,isTrail,isNight,distance,inHome,homeValue
 }
 from './game.js';
 const palette=['#354b32','#3a5034','#3d5135','#344a31','#3e5438','#41563a'];
@@ -110,32 +111,9 @@ export class Renderer {
     c.restore();
   }
   resource(r,g){
-    const q=this.screen(r.x,r.y),c=this.ctx;
-    if(r.type==='wood')return this.tree(r,g);
-    if(r.ready>g.time)return;
-    if(r.type==='stone'){
-      this.box(r.x,r.y,.38,12,['#929589','#626e65','#758076']);
-      this.box(r.x+.3,r.y-.2,.2,8,['#aaa99a','#78857a','#697a72']);
-      c.strokeStyle='#d1cfb688'; c.lineWidth=1; c.beginPath();
-      c.moveTo(q.x-8,q.y-12); c.lineTo(q.x-2,q.y-15); c.lineTo(q.x+6,q.y-12); c.stroke();
-      c.strokeStyle='#475b50'; c.beginPath(); c.moveTo(q.x+2,q.y-10); c.lineTo(q.x,q.y-5); c.lineTo(q.x+4,q.y-1); c.stroke();
-    }
-    else{
-      for(let i=0; i<5; i++){
-        c.fillStyle=i%2?'#617449':'#4e673e';
-        c.beginPath();
-        c.arc(q.x+(i-2)*5,q.y-5-Math.sin(i)*4,8,0,Math.PI*2);
-        c.fill();
-        c.strokeStyle='#a0ad7566'; c.lineWidth=1; c.beginPath();
-        c.moveTo(q.x+(i-2)*5,q.y); c.lineTo(q.x+(i-2)*6,q.y-9); c.stroke();
-      }
-      for(let i=0; i<6; i++){
-        c.fillStyle='#bc675d';
-        c.beginPath();
-        c.arc(q.x-10+i*4,q.y-8+(i%2)*5,2,0,Math.PI*2);
-        c.fill();
-      }
-    }
+    if(r.ready>g.time){if(r.type==='wood'&&!r.variant)this.tree(r,g);return;}
+    if(r.variant){drawNature(this,r,g);return;}
+    if(r.type==='wood')this.tree(r,g);else drawDetailedResource(this,r,g);
   }
   part(p, g) { drawBuilding(this, p, g); }
   actor(actor, g, player = false) {
@@ -194,6 +172,8 @@ export class Renderer {
       }else objects.push({o:p,kind:'part'});
     }
     for(let x=minX;x<=maxX;x++)for(let y=minY;y<=maxY;y++)if(terrain(x,y,g)==='mountain')objects.push({o:{x,y},kind:'mountain'});
+    for(const scene of SCENERY)if(visible(scene)&&!['fern','mushrooms','log'].includes(scene.type)&&!g.parts.some(p=>p.x===scene.x&&p.y===scene.y))objects.push({o:scene,kind:'nature'});
+    for(const animal of g.animals)if(!animal.dead&&visible(animal))objects.push({o:animal,kind:'animal'});
     for(const e of g.enemies)if(!e.dead&&visible(e))objects.push({
       o:e,kind:'enemy'
     });
@@ -214,6 +194,8 @@ export class Renderer {
       if(kind==='resource'){c.save();const elapsed=g.time-o.struckAt;if(elapsed>=0&&elapsed<.2)c.translate(Math.sin(elapsed*75)*3*(1-elapsed/.2),0);this.resource(o,g);c.restore();}
       else if(kind==='part')this.part(o,g);
       else if(kind==='mountain')this.mountain(o);
+      else if(kind==='nature')drawNature(this,o,g);
+      else if(kind==='animal')drawAnimal(this,o,g,this.animator.pose(o,g.time));
       else if(kind==='enemy'||kind==='player')this.actor(o,g,kind==='player');
       else{
         this.box(o.x,o.y,.3,kind==='note'?27:14,['#a0a28a','#586b60','#718577']);
@@ -242,6 +224,10 @@ export class Renderer {
     c.fillRect(0,0,this.w,this.h);
     for(const fx of g.effects){
       const q=this.screen(fx.x,fx.y);
+      if(fx.ring){
+        c.save();c.globalAlpha=Math.max(0,fx.life*2);c.strokeStyle=fx.color;c.lineWidth=3;
+        c.beginPath();c.ellipse(q.x,q.y,fx.ring*this.scale*Math.SQRT2*(1-fx.life*.4),fx.ring*this.scale/Math.SQRT2*(1-fx.life*.4),0,0,Math.PI*2);c.stroke();c.restore();
+      }
       if(fx.to){
         const t=this.screen(fx.to.x,fx.to.y);
         c.strokeStyle=fx.color;
@@ -253,6 +239,7 @@ export class Renderer {
       }
       else this.text(q.x,q.y-45-(1-fx.life)*15,fx.text,fx.color,12);
     }
+    for(const bolt of g.projectiles){const q=this.screen(bolt.x,bolt.y,20);c.strokeStyle='#b6db8999';c.lineWidth=4;c.beginPath();const tail=this.screen(bolt.x-bolt.vx*.12,bolt.y-bolt.vy*.12,20);c.moveTo(tail.x,tail.y);c.lineTo(q.x,q.y);c.stroke();c.fillStyle='#e2eeb5';c.beginPath();c.arc(q.x,q.y,5,0,Math.PI*2);c.fill();}
     const target=context(g);
     if(target?.kind==='resource'){
       const q=this.screen(target.x,target.y),active=target.ready<=g.time;
@@ -260,7 +247,7 @@ export class Renderer {
       if(active){
         const hits=target.hits||0,total=GATHER[target.type].hits;
         c.fillStyle='#102026ee';c.fillRect(q.x-32,q.y+9,64,20);
-        this.text(q.x,q.y+22,`${target.type==='wood'?'Дерево':target.type==='stone'?'Камень':'Ягоды'} ${hits}/${total}`,'#f0d9a0',10);
+        this.text(q.x,q.y+22,`${target.type==='wood'?'Дерево':target.type==='stone'?'Камень':target.type==='herb'?'Травы':target.type==='mushroom'?'Грибы':'Ягоды'} ${hits}/${total}`,'#f0d9a0',10);
         c.fillStyle='#415a52';c.fillRect(q.x-30,q.y+30,60,3);c.fillStyle='#e3bd78';c.fillRect(q.x-30,q.y+30,60*hits/total,3);
       }
     }
@@ -284,9 +271,9 @@ export class Renderer {
   }
 
   map(canvas,g){
-    const c=canvas.getContext('2d'),unit=3.2;canvas.width=320;canvas.height=190;
-    const project=p=>{const v=toPlane(p.x,p.y);return{x:8+v.x*unit,y:7+v.y*unit};};
-    c.fillStyle='#152c25';c.fillRect(0,0,320,190);
+    const c=canvas.getContext('2d'),unit=2.7;canvas.width=280;canvas.height=280;
+    const project=p=>{const v=toPlane(p.x,p.y);return{x:140+(v.x-72)*unit,y:140+(v.y-48*Math.sqrt(3)/2)*unit};};
+    c.fillStyle='#152c25';c.fillRect(0,0,280,280);
     for(let x=0;x<SIZE;x++)for(let y=0;y<SIZE;y++){
       const vertices=corners(x,y);c.beginPath();vertices.forEach((v,i)=>{const q=project(v);if(i)c.lineTo(q.x,q.y);else c.moveTo(q.x,q.y);});c.closePath();
       const kind=terrain(x,y,g);c.fillStyle=kind==='water'?'#3e7181':kind==='mountain'?'#bac6ba':kind==='shore'?'#b2a77d':kind==='heath'?'#828165':isTrail(x,y)?'#8e8255':palette[Math.floor(hash(x,y)*6)];c.fill();

@@ -110,3 +110,17 @@ test('harvest tools and resource progress draw finite coordinates through windup
     assert.equal(g.resources[0].hits,1);
   }
 });
+
+test('expanded scenery, animals and all boss telegraphs render finite geometry',async()=>{
+ const {drawNature,drawAnimal}=await import('../src/nature.js');
+ const r=new Renderer(canvasMock()),g=G.createGame(1);
+ for(const time of [0,.3,1,350]){
+  g.time=time;
+  for(const o of G.SCENERY)drawNature(r,o,g);
+  for(const a of g.animals)drawAnimal(r,a,g,r.animator?.pose(a,time)||{facing:1,bob:1,step:.5});
+  for(const resource of g.resources)r.resource(resource,g);
+  const boss=g.enemies.find(e=>e.type==='boss');Object.assign(g.player,{x:boss.x+2,y:boss.y});r.camera={...G.BOSS_POS};
+  for(const kind of ['swipe','slam','ranged']){Object.assign(boss,{attackKind:kind,attackFacingX:2,attackFacingY:0,phase:'windup',timer:.5,windupTime:1.3});r.draw(g);}
+  g.projectiles=[{x:boss.x,y:boss.y,vx:2,vy:1,life:1}];g.effects=[{x:boss.x,y:boss.y,ring:4.6,life:.4,text:'КОРНИ',color:'#fff'}];r.draw(g);
+ }
+});

@@ -1,3 +1,4 @@
+import {GameAudio} from './audio.js';
 import { applyHudLayout } from './layout.js';
 import { gameKey } from './keys.js';
 import { icon } from './icons.js';
@@ -11,6 +12,8 @@ import {
 from './render.js';
 const $=id=>document.getElementById(id),canvas=$('world'),renderer=new Renderer(canvas);
 const SAVE_KEY='forest-hearth-v1';
+let audioSettings={music:true,effects:true};try{const stored=JSON.parse(localStorage.getItem('midgard-audio'));if(stored&&typeof stored.music==='boolean'&&typeof stored.effects==='boolean')audioSettings=stored;}catch{}
+const audio=new GameAudio(audioSettings);let lastStep=0;
 let game=G.createGame(),started=false,panelName=null,buildType=null,buildEdge=null,buildDrag=null,selectedItem=null,barSignature='',pointer=null,joy=null,lastFrame=0,lastHud=0,saveClock=0,lastEvent=0,toastUntil=0,saveError='',knownSave=false;
 const input={
   x:0,y:0,block:false
@@ -69,7 +72,7 @@ function inventoryGrid(inv,selectable=false){
 function itemDetails(k){
   if(!k||!game.player.inv[k])return '<aside class="item-detail"><div class="detail-emblem">ᛉ</div><h3>Снаряжение странника</h3><p>Выберите предмет, чтобы узнать его свойства, использовать или назначить на пояс.</p><small>Броня действует, пока находится в сумке.</small></aside>';
   const f=G.FOODS[k],usable=G.usableItem(k);
-  return `<aside class="item-detail">${icon(k,'detail-icon')}<small>${f?'ПРИПАСЫ':k==='potion'?'АЛХИМИЯ':usable?'ОРУЖИЕ':'МАТЕРИАЛЫ'}</small><h3>${G.ITEMS[k]}</h3><p>${f?`Сытость: ${f.sat/60} мин.${f.buff?` +${f.hp} к максимуму здоровья на ${f.buff/60} мин.`:''}`:k==='potion'?'Восстанавливает 40 здоровья. Между применениями — 20 секунд. Варится у очага из 3 ягод и 1 смолы.':k==='sword'?'Направленный взмах. Подойдите на длину клинка.':k==='bow'?'Дальний бой. Каждый выстрел расходует стрелу.':k==='armor'?`Защищает от ударов. Прочность: ${Math.floor(game.player.durability)}%.`:'Пригодится для строительства и ремесла.'}</p>${usable?button(f?'Съесть':k==='potion'?'Выпить':'Взять в руки',`use:${k}`,'primary'):''}${k==='armor'?button('Ремонт · 2 шкуры','armor-repair'):''}${usable?'<h4>Назначить на пояс</h4><div class="slot-assign">'+Array.from({length:9},(_,i)=>button(i+1,`assign:${k}:${i}`,game.player.quickbar[i]===k?'selected':'')).join('')+'</div><small>Цифры 1–9 или касание ячейки в игре.</small>':''}</aside>`;
+  return `<aside class="item-detail">${icon(k,'detail-icon')}<small>${f?'ПРИПАСЫ':k==='potion'?'АЛХИМИЯ':usable?'ОРУЖИЕ':'МАТЕРИАЛЫ'}</small><h3>${G.ITEMS[k]}</h3><p>${f?`Сытость: ${f.sat/60} мин.${f.buff?` +${f.hp} к максимуму здоровья на ${f.buff/60} мин.`:''}`:k==='potion'?'Восстанавливает 40 здоровья. Между применениями — 20 секунд. Варится у очага из 2 ягод и 2 лечебных трав.':k==='sword'?'Направленный взмах. Подойдите на длину клинка.':k==='bow'?'Дальний бой. Каждый выстрел расходует стрелу.':k==='armor'?`Защищает от ударов. Прочность: ${Math.floor(game.player.durability)}%.`:'Пригодится для строительства и ремесла.'}</p>${usable?button(f?'Съесть':k==='potion'?'Выпить':'Взять в руки',`use:${k}`,'primary'):''}${k==='armor'?button('Ремонт · 2 шкуры','armor-repair'):''}${usable?'<h4>Назначить на пояс</h4><div class="slot-assign">'+Array.from({length:9},(_,i)=>button(i+1,`assign:${k}:${i}`,game.player.quickbar[i]===k?'selected':'')).join('')+'</div><small>Цифры 1–9 или касание ячейки в игре.</small>':''}</aside>`;
 }
 function renderQuickbar(){
   const p=game.player,signature=JSON.stringify([p.quickbar,p.inv,p.weapon,Math.ceil(p.potionCooldown)]);if(signature===barSignature)return;barSignature=signature;
@@ -142,7 +145,7 @@ function renderPanel(){
     html=`<div class="eyebrow">ПУТЬ НЕ ЗАКОНЧЕН</div><h2 id="panelTitle">Лес забрал своё</h2><p>Ваши вещи остались на месте гибели. Навыки и запасы дома сохранены. Хранитель восстановил здоровье.</p><div class="row">${button('Возродиться на старте','respawn:start','primary')}${game.parts.some(v=>v.type==='bed'&&v.hp>0)?button('Возродиться дома','respawn:home','secondary'):''}</div><p class="muted">Дом может быть занят монстрами. Выбор старта всегда доступен.</p>`;
   }
   else if(panelName==='pause'){
-    html=title('У огня времени')+`<p>Игра на паузе. День, голод и нападения остановлены.</p><div class="row">${button('Продолжить','close','primary')}${button('Сохранить','save','secondary')}${button('Копия сохранения','export','secondary')}${button('Управление','help','secondary')}</div><hr><label>Восстановить из файла <input id="importFile" type="file" accept="application/json,.json"></label><p class="muted">Импорт заменит текущий мир только после подтверждения. Локальное сохранение принадлежит этому браузеру; очистка его данных удаляет прогресс.</p><hr>${button('Начать новый путь','new-confirm','danger secondary')}${saveError?`<p class="notice">${escape(saveError)}</p>`:''}`;
+    html=title('У огня времени')+`<p>Игра на паузе. День, голод и нападения остановлены.</p><div class="audio-settings">${button('Музыка: '+(audio.settings.music?'вкл':'выкл'),'audio:music','secondary')}${button('Звуки: '+(audio.settings.effects?'вкл':'выкл'),'audio:effects','secondary')}</div><div class="row">${button('Продолжить','close','primary')}${button('Сохранить','save','secondary')}${button('Копия сохранения','export','secondary')}${button('Управление','help','secondary')}</div><hr><label>Восстановить из файла <input id="importFile" type="file" accept="application/json,.json"></label><p class="muted">Импорт заменит текущий мир только после подтверждения. Локальное сохранение принадлежит этому браузеру; очистка его данных удаляет прогресс.</p><hr>${button('Начать новый путь','new-confirm','danger secondary')}${saveError?`<p class="notice">${escape(saveError)}</p>`:''}`;
   }
   else if(panelName==='help'){
     html=title('Как играть')+`<div class="keyhelp"><span>Левый круг / WASD — движение</span><span>Удар / Пробел — атака ближайшей цели</span><span>Блок / удержание Q — защита</span><span>Действие / E — собрать, открыть, прочитать</span><span>Карта / M · Пауза / Esc</span><span>1–9 — предметы на поясе</span></div><hr><p>Соберите дерево и камень вокруг тропы. В меню строительства отметьте участок и поставьте пол. Затем разместите стены по краям, дверь и очаг. Для пола зажмите и протяните область. Для стен протяните область полов — получите замкнутый контур. Одиночное касание ставит стену на ближайшее ребро; R переключает автоматический выбор и шесть направлений. Оставьте проход дверью: разберите один сегмент стены и поставьте дверь. Двигаться при этом можно левым кругом.</p><p>У верстака создайте меч, лук, стрелы и броню. Еду можно съесть в сумке. У очага в закрытом доме здоровье восстанавливается, если вы сыты и рядом нет монстров. Короткая вспышка перед атакой противника — время решить, блокировать ли или отступить.</p><p>Нападение начнётся после предупреждения. Закрытая дверь удерживает обычных врагов; развитый дом привлекает разрушителей. Кнопка действия работает с ближайшим объектом — подойдите непосредственно к нужному.</p><div class="row">${button(started?'Вернуться в игру':'К началу',started?'close':'intro','primary')}</div>`;
@@ -176,6 +179,7 @@ function renderPanel(){
   });
 }
 function start(){
+  audio.unlock();
   started=true;
   closePanel();
   safeSave();
@@ -188,6 +192,8 @@ $('panel').addEventListener('click',event=>{
   const b=event.target.closest('[data-action]');
   if(!b)return;
   const [act,arg,extra]=b.dataset.action.split(':');
+  audio.play('ui');
+  if(act==='audio'){audio.set(arg,!audio.settings[arg]);try{localStorage.setItem('midgard-audio',JSON.stringify(audio.settings));}catch{}refreshPanel();return;}
   if(act==='select'){selectedItem=arg;refreshPanel();return;}
   if(act==='use'){G.useItem(game,arg);refreshPanel();}
   if(act==='assign'){G.assignQuickSlot(game,Number(extra),arg);refreshPanel();}
@@ -410,13 +416,13 @@ window.addEventListener('keyup',e=>keys.delete(gameKey(e)));
 window.addEventListener('blur',()=>{
   clearInput();
   if(started&&!game.player.dead){
-    safeSave();
+    safeSave();audio.update(game,false);
     openPanel('pause');
   }
 });
 document.addEventListener('visibilitychange',()=>{
   clearInput();
-  if(document.hidden&&started)safeSave();
+  if(document.hidden&&started){safeSave();audio.update(game,false);}
   pauseState();
   lastFrame=performance.now();
 });
@@ -434,11 +440,12 @@ function hud(){
   renderQuickbar();
   const p=game.player,max=G.maxHp(game),phase=game.time%G.DAY,night=G.isNight(game),context=G.context(game);
   $('hpFill').style.width=`${Math.max(0,p.hp/max*100)}%`;
-  $('hpText').textContent=`${Math.ceil(p.hp)}`;
+  $('hpText').textContent=`${Math.ceil(p.hp)} / ${max}`;
   $('staminaFill').style.width=`${p.stamina}%`;
   $('staminaText').textContent=Math.floor(p.stamina);
   $('foodText').textContent=p.food>0?`Сытость · ${Math.floor(p.food/60)}:${String(Math.floor(p.food%60)).padStart(2,'0')}`:'Голод · здоровье убывает';
-  $('buffText').textContent=p.buff>0?`Пища: +${p.foodBonus} здоровья · ${Math.ceil(p.buff/60)} мин`:'';
+  $('buffText').textContent='';
+  $('statusEffects').innerHTML=G.statusEffects(game).map(effect=>`<span class="status-icon ${effect.kind}" role="img" aria-label="${effect.name}" title="${effect.name}">${icon(effect.icon)}${effect.seconds?`<small>${effect.seconds<60?`${Math.ceil(effect.seconds)}с`:`${Math.ceil(effect.seconds/60)}м`}</small>`:''}</span>`).join('');
   $('clock').textContent=`${night?'Ночь':'День'} ${Math.floor(game.time/G.DAY)+1}`;
   $('sun').textContent=night?'☾':'☀';
   $('phase').textContent=`${night?'До рассвета':'До ночи'} ${Math.floor((night?G.DAY-phase:300-phase)/60)}:${String(Math.floor((night?G.DAY-phase:300-phase)%60)).padStart(2,'0')} · лес`;
@@ -457,10 +464,10 @@ function hud(){
   $('raid').classList.toggle('hidden',!game.raidPending&&!raiders&&!invaders);
   $('raid').textContent=game.raidPending?`Вой в лесу · нападение через ${Math.ceil(game.raidWarning)} с`:`Дом под угрозой · внутри: ${invaders} · нападающих: ${raiders}`;
   const boss=game.enemies.find(e=>e.type==='boss');
-  $('bossHud').classList.toggle('hidden',!boss||boss.dead||G.distance(p,boss)>10);
+  $('bossHud').classList.toggle('hidden',!boss||boss.dead||G.distance(p,boss)>17);
   if(boss){
     $('bossFill').style.width=`${Math.max(0,boss.hp/boss.maxHp*100)}%`;
-    $('bossPhase').textContent=boss.hp<boss.maxHp*.5?'Лес пробудился':'Старые корни';
+    $('bossPhase').textContent=boss.phase==='windup'?({ranged:'Залп корней — двигайтесь в сторону',slam:'Круговой удар — отступите',swipe:'Замах — выйдите из сектора'})[boss.attackKind]||'Замах':boss.hp<boss.maxHp*.5?'Ярость йотуна':'Страж мирового древа';
   }
   $('buildBanner').classList.toggle('hidden',!buildType);
   $('turnBuild').textContent=buildEdge===null?'Ребро: авто':'Ребро '+(buildEdge+1)+' ↻';
@@ -486,7 +493,10 @@ function frame(now){
   input.y=move.y;
   input.block=touchBlock||keys.has('q');
   if(canControl()&&(touchInteract||keys.has('e'))){const target=G.context(game);if(target?.kind==='resource'&&target.ready<=game.time)G.interact(game);}
+  const oldX=game.player.x,oldY=game.player.y;
   G.tick(game,dt,input);
+  if(started&&!game.paused&&(oldX!==game.player.x||oldY!==game.player.y)&&game.time-lastStep>.36){G.sound(game,'step');lastStep=game.time;}
+  audio.update(game,started&&!document.hidden);
   if(game.player.dead&&panelName!=='death'){
     safeSave();
     openPanel('death');

@@ -8,7 +8,7 @@ for(const b of document.querySelectorAll('[data-panel]'))b.innerHTML=icon(b.data
 $('attack').innerHTML=icon('sword')+'<small>Удар · Пробел</small>';
 $('block').innerHTML=icon('guard')+'<small>Блок · Q</small>';
 $('interact').innerHTML=icon('wood')+'<small>Рубить: Дерево · E</small>';
-$('foodText').textContent='Сытость ещё 45 мин';$('buffText').textContent='Бонус здоровья +40 · 14 мин';
+$('foodText').textContent='Сытость ещё 45 мин';$('buffText').textContent='';$('hpText').textContent='140 / 140';$('staminaText').textContent='100';$('statusEffects').innerHTML=['stew','energy','armor','root','water','fire'].map(name=>`<span class="status-icon">${icon(name)}<small>15м</small></span>`).join('');
 $('bossPhase').textContent='Лес пробудился';
 window.runLayoutCase=async({width,height,mode,insets})=>{
  const hud=$('hud');hud.style.padding=`${8+(insets.top||0)}px ${8+(insets.right||0)}px ${8+(insets.bottom||0)}px ${8+(insets.left||0)}px`;

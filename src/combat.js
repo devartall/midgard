@@ -25,7 +25,7 @@ export function sweptHit(swing,origin,target,fromTime,toTime) {
   // Sample the swept blade, not a radial auto-hit. Sampling bounds angular gaps.
   for(let i=0;i<=12;i++) {
     const angle=swing.angle-.8+(lo+(hi-lo)*i/12-start)/spec.active*1.6;
-    if(pointSegment(target,...bladeSegment(origin,angle,spec.reach))<=.16)return true;
+    if(pointSegment(target,...bladeSegment(origin,angle,spec.reach))<=(target.type==='boss'?.95:.16))return true;
   }
   return false;
 }

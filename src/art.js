@@ -1,6 +1,6 @@
-import { edgePoints, wallEdges, corners } from './hex.js';
+import { edgePoints, wallEdges, corners, fromPlane } from './hex.js';
 import { swingPose, bladeSegment, aimAngle, MELEE, ENEMY_REACH } from './combat.js';
-import { PARTS, blocked, distance } from './game.js';
+import { bossAttackSpec, PARTS, blocked, distance } from './game.js';
 
 function line(c, points, color, width = 1) {
   c.strokeStyle = color; c.lineWidth = width; c.lineCap = 'round';
@@ -230,15 +230,24 @@ export function drawActor(r, actor, g, player, pose) {
   if (actor.dead) return;
   const c = r.ctx, q = r.screen(actor.x, actor.y), boss = actor.type === 'boss';
   c.save();
-  oval(c, q.x, q.y + 2, boss ? 29 : actor.type === 'wolf' ? 20 : 13, boss ? 10 : 5, '#071c1c66');
+  oval(c, q.x, q.y + 2, boss ? 46 : actor.type === 'wolf' ? 20 : 13, boss ? 10 : 5, '#071c1c66');
   if (!player && actor.phase === 'windup') {
-    const radius = boss ? (actor.hp < actor.maxHp * .5 && actor.attackIndex % 3 === 0 ? 4.2 : 2.8) : ENEMY_REACH[actor.type];
+    const radius = boss ? bossAttackSpec(actor.attackKind,actor.hp<actor.maxHp*.5).reach : ENEMY_REACH[actor.type];
     c.fillStyle = '#bd664335'; c.strokeStyle = '#e7ad6b99'; c.lineWidth = 1;
-    c.beginPath(); c.ellipse(q.x, q.y, r.scale * radius * Math.SQRT2, r.scale * radius / Math.SQRT2, 0, 0, Math.PI * 2); c.fill(); c.stroke();
+    c.beginPath();
+    if(boss&&actor.attackKind==='swipe'){
+      const aim=aimAngle({x:actor.attackFacingX,y:actor.attackFacingY}),spread=Math.acos(.3);
+      c.moveTo(q.x,q.y);for(let i=0;i<=24;i++){const angle=aim-spread+spread*2*i/24,v=fromPlane(Math.cos(angle)*radius,Math.sin(angle)*radius),point=r.screen(actor.x+v.x,actor.y+v.y);c.lineTo(point.x,point.y);}c.closePath();
+    }else c.ellipse(q.x, q.y, r.scale * (boss&&actor.attackKind==='ranged'?1.2:radius) * Math.SQRT2, r.scale * (boss&&actor.attackKind==='ranged'?1.2:radius) / Math.SQRT2, 0, 0, Math.PI * 2);
+    c.fill(); c.stroke();
+    if(boss&&actor.attackKind==='ranged'){
+      const n=Math.max(.001,distance({x:0,y:0},{x:actor.attackFacingX,y:actor.attackFacingY})),end=r.screen(actor.x+actor.attackFacingX/n*16,actor.y+actor.attackFacingY/n*16);
+      line(c,[[q.x,q.y],[end.x,end.y]],'#e6bf8277',3);
+    }
     c.strokeStyle = '#f1b177'; c.lineWidth = 2; c.beginPath();
-    c.arc(q.x, q.y - (boss ? 114 : 63), 10, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pose.windup); c.stroke();
+    c.arc(q.x, q.y - (boss ? 185 : 63), 10, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pose.windup); c.stroke();
   }
-  c.save(); c.translate(q.x + pose.lunge * pose.facing, q.y + pose.bob); c.scale(pose.facing*(boss?1.15:1.3),boss?1.15:1.3);
+  c.save(); c.translate(q.x + pose.lunge * pose.facing, q.y + pose.bob); c.scale(pose.facing*(boss?1.85:1.3),boss?1.85:1.3);
   if (actor.type === 'wolf') wolf(r, pose);
   else if (boss) guardian(r, actor, pose);
   else humanoid(r, actor, g, pose, player);
@@ -253,7 +262,7 @@ export function drawActor(r, actor, g, player, pose) {
     c.fillStyle = '#13281d'; c.fillRect(q.x - 15, q.y - 70, 30, 3);
     c.fillStyle = '#bf8267'; c.fillRect(q.x - 15, q.y - 70, 30 * actor.hp / actor.maxHp, 3);
   }
-  if (actor.stun > 0) r.text(q.x, q.y - (boss ? 120 : 76), '✧', '#d9df9b', 20);
+  if (actor.stun > 0) r.text(q.x, q.y - (boss ? 190 : 76), '✧', '#d9df9b', 20);
   c.restore();
 }
 
@@ -285,8 +294,9 @@ function drawGatherTool(r,actor,g,pose){
   const c=r.ctx,q=r.screen(actor.x,actor.y),age=g.time-actor.harvest.started;
   const angle=age<.12?-.4-age/.12*2.4:age<.22?-2.8+(age-.12)/.1*2.6:-.2+(age-.22)/.33*.3;
   c.save();c.translate(q.x+8*pose.facing,q.y-30);c.scale(pose.facing,1);c.rotate(angle);
-  line(c,[[0,0],[25,0]],'#b8a078',4);
-  if(actor.harvest.type==='wood')r.poly([[20,-4],[30,-9],[30,6],[20,3]],'#bfc7b9','#657c79');
+  line(c,[[0,0],[25,0]],'#5e472e',6);line(c,[[0,-1],[25,-1]],'#c3a577',3);
+  for(let i=0;i<4;i++)line(c,[[i*3,-3],[i*3+2,3]],'#72563c',1);
+  if(actor.harvest.type==='wood'){r.poly([[20,-4],[31,-10],[35,-7],[33,7],[28,9],[20,3]],'#9eafa7','#536c6b');line(c,[[31,-10],[35,-7],[33,7],[28,9]],'#e3e4cf',2);line(c,[[22,-3],[28,-3],[27,3]],'#627b76');oval(c,22,0,1,1,'#d9c395');}
   else line(c,[[20,-10],[27,-4],[28,4],[24,10]],'#c1ccc3',4);
   oval(c,1,0,4,4,'#d9bd92');c.restore();
 }

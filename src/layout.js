@@ -4,7 +4,7 @@ export function hudLayout(width,height,insets={}) {
   const w=Math.max(1,width-pad.left-pad.right),h=Math.max(1,height-pad.top-pad.bottom);
   const short=h<340,compact=h<360||w<760,gap=short?4:6;
   const side=Math.min(compact?136:178,Math.max(100,w*.21));
-  const header=short?32:compact?40:48,status=short?40:compact?66:90;
+  const header=short?32:compact?40:48,status=short?78:154;
   const toast=44,bar=short?36:44,nav=short?34:44,dock=toast+bar+nav+gap*2;
   const middle=Math.max(0,h-header-dock-gap*2),center=w-side*2-gap*2;
   const x=pad.left+side+gap,bottom=height-pad.bottom,top=pad.top;
