@@ -135,3 +135,11 @@ test('snow and fire terrain, minerals, magic and front/back poses draw finite ge
   for(const a of g.animals)drawAnimal(r,a,g,pose);
  }
 });
+
+test('ordinary landscape renders without hex overlays; building mode retains its grid',()=>{
+ const g=G.createGame(1),r=new Renderer(canvasMock());g.home={...G.START};let hexes=0;
+ const original=r.hex.bind(r);r.hex=(...args)=>{hexes++;return original(...args);};
+ r.draw(g);assert.equal(hexes,0);
+ r.draw(g,'floor',{x:400,y:200});assert.ok(hexes>0);
+ for(const p of [{x:31,y:43},{x:32,y:44},{x:33,y:45},{x:34,y:46},{x:116,y:49},{x:142,y:112}])r.mountain(p,g);
+});

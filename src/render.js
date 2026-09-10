@@ -1,3 +1,4 @@
+import {GroundPainter,drawMountain} from './landscape.js';
 import {drawNature,drawAnimal,drawDetailedResource} from './nature.js';
 import { wallEdges, toPlane, fromPlane, corners, hexRound, edgePoints } from './hex.js';
 import { ActorAnimator } from './animation.js';
@@ -14,6 +15,7 @@ export class Renderer {
       alpha:false
     });
     this.animator = new ActorAnimator();
+    this.ground = new GroundPainter();
     this.w=0;
     this.h=0;
     this.scale=1;
@@ -129,23 +131,21 @@ export class Renderer {
     const corners=[this.world(-100,-120),this.world(this.w+100,-120),this.world(-100,this.h+180),this.world(this.w+100,this.h+180)];
     const minX=Math.max(0,Math.floor(Math.min(...corners.map(p=>p.x)))),maxX=Math.min(SIZE-1,Math.ceil(Math.max(...corners.map(p=>p.x))));
     const minY=Math.max(0,Math.floor(Math.min(...corners.map(p=>p.y)))),maxY=Math.min(SIZE-1,Math.ceil(Math.max(...corners.map(p=>p.y))));
-    for(let x=minX; x<=maxX; x++)for(let y=minY; y<=maxY; y++){
-      const h=hash(x,y),kind=terrain(x,y,g),water=kind==='water';
-      this.hex(x,y,1.01,water?'#254953':kind==='snow'?'#b5cbd4':kind==='ash'?'#55484c':kind==='lava'?'#e76c32':kind==='mountain'?'#536566':kind==='shore'?'#9a9475':kind==='heath'?'#6c7360':isTrail(x,y)?'#827852':palette[Math.floor(h*palette.length)],'#152e232e');
-      if(water&&h>.6){const q=this.screen(x,y);c.strokeStyle='#79afad55';c.beginPath();c.moveTo(q.x-8,q.y);c.lineTo(q.x+6,q.y);c.stroke();}
-      if(!water&&kind!=='mountain'&&!isTrail(x,y)&&h>.6){
-        const q=this.screen(x,y);
-        c.strokeStyle='#8c9c6237';
-        c.lineWidth=1;
-        c.beginPath();
-        c.moveTo(q.x-4,q.y);
-        c.lineTo(q.x-5,q.y-4);
-        c.moveTo(q.x,q.y+2);
-        c.lineTo(q.x+2,q.y-3);
-        c.stroke();
+    this.ground.draw(this,g,corners);
+    // Fine detail has irregular positions; the surface itself has no tile outlines.
+    for(let x=minX;x<=maxX;x++)for(let y=minY;y<=maxY;y++){
+      const h=hash(x,y);if(h<.74)continue;
+      const kind=terrain(x,y,g),q=this.screen(x+(hash(x+33,y)-.5)*.7,y+(hash(x,y+21)-.5)*.7);
+      c.lineWidth=1;c.beginPath();
+      if(kind==='water'||kind==='lava'){
+        const drift=Math.sin(g.time*.7+x*.3)*2;c.strokeStyle=kind==='water'?'#79afad36':'#ffc17a66';
+        c.moveTo(q.x-6+drift,q.y);c.quadraticCurveTo(q.x,q.y-2,q.x+4+drift,q.y);
+      }else if(kind==='grass'&&!isTrail(x,y)){
+        c.strokeStyle='#98a97133';c.moveTo(q.x-3,q.y);c.lineTo(q.x-4,q.y-3);c.moveTo(q.x,q.y+1);c.lineTo(q.x+2,q.y-2);
       }
+      c.stroke();
     }
-    if(g.home&&(buildType||distance(g.player,g.home)<9)){
+    if(g.home&&buildType){
       for(let x=g.home.x-5; x<=g.home.x+5; x++)for(let y=g.home.y-5; y<=g.home.y+5; y++)if(inHome(g,{x,y}))this.hex(x,y,.98,'#b7ad7310',buildType?'#e2cf8240':null);
       const q=this.screen(g.home.x,g.home.y-5);
       this.text(q.x,q.y-13,`ВАШ УЧАСТОК · ${homeValue(g)}`,'#d1c596',9);
@@ -157,7 +157,7 @@ export class Renderer {
       this.diamond(b.x,b.y,3.7,'#16382722',b.biome==='fire'?'#ef956833':'#adc09b33');
     }
     for(const camp of CAMPS){
-      this.hex(camp.x,camp.y,2.1,'#2c29284a','#92784e44');
+      const spot=this.screen(camp.x,camp.y),shade=c.createRadialGradient(spot.x,spot.y,0,spot.x,spot.y,this.scale*2);shade.addColorStop(0,'#2c29284a');shade.addColorStop(1,'#2c292800');c.fillStyle=shade;c.fillRect(spot.x-this.scale*2,spot.y-this.scale*2,this.scale*4,this.scale*4);
       const q=this.screen(camp.x,camp.y);this.text(q.x,q.y-6,'ᛏ', '#a98c60',19);
       for(let i=0;i<3;i++)this.box(camp.x+(i-1)*1.1,camp.y+1,.17,13,['#8b927f','#3e5150','#596b60']);
     }
@@ -193,7 +193,7 @@ export class Renderer {
     of objects){
       if(kind==='resource'){c.save();const elapsed=g.time-o.struckAt;if(elapsed>=0&&elapsed<.2)c.translate(Math.sin(elapsed*75)*3*(1-elapsed/.2),0);this.resource(o,g);c.restore();}
       else if(kind==='part')this.part(o,g);
-      else if(kind==='mountain')this.mountain(o);
+      else if(kind==='mountain')this.mountain(o,g);
       else if(kind==='nature')drawNature(this,o,g);
       else if(kind==='animal')drawAnimal(this,o,g,this.animator.pose(o,g.time));
       else if(kind==='enemy'||kind==='player')this.actor(o,g,kind==='player');
@@ -245,7 +245,7 @@ export class Renderer {
     const target=context(g);
     if(target?.kind==='resource'){
       const q=this.screen(target.x,target.y),active=target.ready<=g.time;
-      this.hex(target.x,target.y,.65,'#d8c58216',active?'#edcf88':'#8f9b9477');
+      c.strokeStyle=active?'#edcf88':'#8f9b9477';c.lineWidth=1;c.beginPath();c.ellipse(q.x,q.y,18,8,0,0,Math.PI*2);c.stroke();
       if(active){
         const hits=target.hits||0,total=GATHER[target.type].hits;
         c.fillStyle='#102026ee';c.fillRect(q.x-32,q.y+9,64,20);
@@ -265,12 +265,7 @@ export class Renderer {
       }
     }else if(buildType&&pointer){const p=this.world(pointer.x,pointer.y),cell=hexRound(p.x,p.y);this.hex(cell.x,cell.y,.98,'#c8b78444','#eee2b1');}
   }
-  mountain(p){
-    const q=this.screen(p.x,p.y),s=this.scale,h=s*(1.4+hash(p.x,p.y)*1.5),top={x:q.x-s*.1,y:q.y-h};
-    this.poly([[q.x-s*.65,q.y],[top.x,top.y],[q.x+s*.15,q.y+s*.38]],'#627578','#99a6a044');
-    this.poly([[top.x,top.y],[q.x+s*.65,q.y],[q.x+s*.15,q.y+s*.38]],'#354e56');
-    this.poly([[top.x,top.y],[top.x-s*.18,top.y+h*.25],[top.x+s*.04,top.y+h*.19],[top.x+s*.2,top.y+h*.29]],'#c5d0c1');
-  }
+  mountain(p,g){drawMountain(this,p,g);}
 
   map(canvas,g){
     const c=canvas.getContext('2d'),unit=1.12;canvas.width=280;canvas.height=220;
