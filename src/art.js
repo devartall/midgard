@@ -1,6 +1,7 @@
+import {armPose} from './arms.js';
 import { edgePoints, wallEdges, corners, fromPlane } from './hex.js';
 import { swingPose, bladeSegment, aimAngle, MELEE, ENEMY_REACH } from './combat.js';
-import { bossAttackSpec, PARTS, blocked, distance } from './game.js';
+import { bossAttackSpec, wearingArmor, usingShield, PARTS, blocked, distance } from './game.js';
 
 function line(c, points, color, width = 1) {
   c.strokeStyle = color; c.lineWidth = width; c.lineCap = 'round';
@@ -136,39 +137,39 @@ export function drawBuilding(r, p, g) {
 
 function humanoid(r, actor, g, pose, player) {
   const c = r.ctx, heavy = actor.type === 'breaker';
-  const cloth = actor.biome==='snow'?'#a7c7d6':actor.biome==='fire'?'#a36a59':player ? '#829c96' : heavy ? '#827451' : '#627566';
+  const cloth = player?(wearingArmor(actor)?'#927650':'#c2b393'):actor.biome==='snow'?'#a7c7d6':actor.biome==='fire'?'#a36a59':heavy ? '#827451' : '#627566';
   const skin = player ? '#d6bd96' : '#9aa57d';
   c.save(); if (heavy) c.scale(1.28, 1.2);
   // Far arm and legs move in opposition; feet stay grounded at rest.
-  line(c, [[-7, -24], [-13 - pose.step * 3, -17], [-10 - pose.step * 5, -12]], '#425447', 5);
+  if(!player)line(c, [[-7, -24], [-13 - pose.step * 3, -17], [-10 - pose.step * 5, -12]], '#425447', 5);
   for (const side of [-1, 1]) {
     const stride = pose.step * side * 5;
     line(c, [[side * 4, -13], [side * 5 + stride * .45, -7], [side * 5 + stride, -1 - Math.max(0, stride) * .25]], '#3b4d43', 5);
     line(c, [[side * 5 + stride - 2, -1], [side * 5 + stride + 3, -1]], '#584c36', 4);
   }
   const sway = pose.step * 2;
-  r.poly([[-9, -28], [5, -28], [10 + sway, -8], [-11 + sway, -5], [-13, -13]], player ? '#3c5b53' : '#3c5041', '#728571');
+  r.poly([[-9, -28], [5, -28], [10 + sway, -8], [-11 + sway, -5], [-13, -13]], player ? '#a29579' : '#3c5041', '#728571');
   r.poly([[-9, -27], [8, -27], [10, -12], [-9, -12]], actor.hurt > 0 ? '#ca9a87' : cloth, '#263f38');
   line(c, [[-8, -23], [6, -16]], '#c4b48a', 2);
   line(c, [[-8, -13], [9, -13]], '#54442e', 3);
   for(let i=-6;i<8;i+=3)line(c,[[i,-26],[i+1,-24]],'#cfceb388',.7);
   line(c,[[-7,-20],[-6,-16]],'#263e3766',1);
   c.fillStyle = '#d0b574'; c.fillRect(-1, -15, 4, 4);
-  if (player && g.player.inv.armor) {
+  if (player && wearingArmor(g.player)) {
     r.poly([[-8, -26], [7, -26], [5, -15], [-6, -15]], '#a68955', '#d0b77d');
     for (let i = -4; i < 6; i += 4) line(c, [[i, -24], [i, -17]], '#715c39');
   }
   oval(c, 0, -33, 6.5, 8, pose.view==='back'?'#65543f':skin);
-  r.poly([[-7, -34], [-6, -41], [4, -42], [8, -35], [3, -37]], player ? '#50695e' : '#485d43');
+  r.poly([[-7, -34], [-6, -41], [4, -42], [8, -35], [3, -37]], player ? '#71543c' : '#485d43');
   if (player&&pose.view!=='back') { r.poly([[-4, -30], [6, -31], [3, -24], [-3, -26]], '#796346'); }
   else if(!player) { line(c, [[-5, -38], [-11, -45]], '#a6a987', 2); line(c, [[4, -39], [10, -45]], '#a6a987', 2); }
   c.fillStyle = player ? '#273d37' : '#e1bd77';
   if(pose.view!=='back'){c.fillRect(2,-34,3,2);if(pose.view==='front')c.fillRect(-5,-34,3,2);}
   else{line(c,[[-4,-38],[-3,-29],[0,-25]],'#ad9269',2);line(c,[[-6,-25],[0,-16],[6,-25]],'#506959',3);}
-  if (player && g.player.weapon === 'bow' && g.player.inv.bow && !g.player.swing && !g.player.harvest) {
+  if (player && g.player.weapon === 'bow' && g.player.inv.bow && !g.player.swing && !g.player.harvest && !g.player.blocking) {
     const pull = pose.strike * 7;
-    line(c, [[7, -25], [15, -23]], skin, 4);
-    line(c, [[-4, -25], [10 - pull, -23]], skin, 3);
+    drawArm(c,{x:7,y:-25},{x:15,y:-23},1,actor);
+    drawArm(c,{x:-7,y:-25},{x:10-pull,y:-23},-1,actor);
     c.strokeStyle = '#d1ad6d'; c.lineWidth = 2; c.beginPath(); c.arc(15, -23, 15, -1.4, 1.4); c.stroke();
     line(c, [[18, -38], [13 - pull, -23], [18, -8]], '#ddd4b0');
     line(c, [[11 - pull, -23], [31, -23]], '#d6c399');
@@ -184,11 +185,6 @@ function humanoid(r, actor, g, pose, player) {
       else line(c, [[5, -15], [5, 3]], '#f3eed0');
     }
     c.restore();
-  }
-  if (player && g.player.blocking) {
-    const glow = '#c5c8a0';
-    r.poly([[-15, -28], [-6, -25], [-7, -14], [-14, -10], [-20, -19]], '#657e71', glow);
-    line(c, [[-14, -25], [-14, -14]], glow, 2);
   }
   c.restore();
 }
@@ -278,25 +274,42 @@ export function drawActor(r, actor, g, player, pose) {
   c.restore();
 }
 
+function drawArm(c,shoulder,target,side,actor){
+ const arm=armPose(shoulder,target,side,10,10),cloth=wearingArmor(actor)?'#95734e':'#c2b393';
+ line(c,[[shoulder.x,shoulder.y],[arm.elbow.x,arm.elbow.y]],cloth,6);
+ line(c,[[arm.elbow.x,arm.elbow.y],[arm.hand.x,arm.hand.y]],'#c9ac86',4);
+ oval(c,arm.hand.x,arm.hand.y,2.8,3,'#dec4a0');return arm;
+}
+function drawShield(c,hand){
+ oval(c,hand.x,hand.y,10,12,'#526765');oval(c,hand.x,hand.y,8.5,10.5,'#ac844f');
+ for(let i=-1;i<=1;i++)line(c,[[hand.x+i*4,hand.y-9],[hand.x+i*4,hand.y+9]],'#765736',1);
+ oval(c,hand.x,hand.y,3.5,4,'#b8c5bc');
+}
 function drawMelee(r,actor,g,pose) {
-  const swing=swingPose(actor.swing,g.time),weapon=swing?actor.swing.weapon:actor.inv[actor.weapon]?actor.weapon:'hands';if(weapon==='bow')return;
-  const angle=swing?swing.angle:aimAngle(actor.facing)-.7,reach=MELEE[weapon].reach;
+  const swing=swingPose(actor.swing,g.time),weapon=swing?actor.swing.weapon:actor.inv[actor.weapon]?actor.weapon:'hands';if(weapon==='bow'&&!actor.blocking)return;
+  const angle=swing?swing.angle:aimAngle(actor.facing)-.7,reach=MELEE[weapon]?.reach||.52;
   const lift=swing?.phase==='windup'?Math.sin(swing.age/MELEE[weapon].windup*Math.PI)*8:0;
   const z=29+lift,q=r.screen(actor.x,actor.y),[u,v]=bladeSegment(actor,angle,reach),a=r.screen(u.x,u.y,z),b=r.screen(v.x,v.y,z);
+  q.x+=pose.lunge*pose.facing;q.y+=pose.bob;
   const c=r.ctx;c.save();
-  const shoulder={x:q.x+7*pose.facing,y:q.y-33},hand=weapon==='hands'?b:a;
-  const elbow={x:shoulder.x+(hand.x-shoulder.x)*.48-3*pose.facing,y:shoulder.y+(hand.y-shoulder.y)*.48+5};
-  line(c,[[shoulder.x,shoulder.y],[elbow.x,elbow.y]],'#435e55',8);
-  line(c,[[shoulder.x-1,shoulder.y-1],[elbow.x-1,elbow.y-1]],'#a0b3a0',4);
-  line(c,[[elbow.x,elbow.y],[hand.x,hand.y]],'#a58463',6);
-  line(c,[[elbow.x-1,elbow.y-1],[hand.x-1,hand.y-1]],'#dfc5a0',3);
-  oval(c,elbow.x,elbow.y,3,3,'#b99e78');
+  const shoulder={x:q.x+8*pose.facing,y:q.y-32};
+  if(actor.blocking&&!swing){
+    const guard=drawArm(c,{x:q.x-8,y:q.y-32},{x:q.x-5,y:q.y-39},-1,actor);
+    drawArm(c,{x:q.x+8,y:q.y-32},{x:q.x+5,y:q.y-39},1,actor);
+    if(usingShield(actor))drawShield(c,guard.hand);c.restore();return;
+  }
+  const target=swing?(weapon==='hands'?b:a):{x:q.x+10*pose.facing+pose.step*2,y:q.y-16};
+  const arm=drawArm(c,shoulder,target,pose.facing,actor);
+  const offhand=drawArm(c,{x:q.x-8*pose.facing,y:q.y-32},{x:q.x-10*pose.facing-pose.step*2,y:q.y-17},-pose.facing,actor);
+  if(usingShield(actor))drawShield(c,offhand.hand);
+  a.x=arm.hand.x;a.y=arm.hand.y;
+  if(!swing){b.x=a.x+6*pose.facing;b.y=a.y+reach*r.scale;}
   if(weapon==='sword'){
     line(c,[[a.x,a.y],[b.x,b.y]],'#53665c',5);
     line(c,[[a.x,a.y],[b.x,b.y]],'#e0e6d0',3);
     const len=Math.max(1,Math.hypot(b.x-a.x,b.y-a.y)),dx=(b.x-a.x)/len,dy=(b.y-a.y)/len;
     line(c,[[a.x-dy*5,a.y+dx*5],[a.x+dy*5,a.y-dx*5]],'#d1b477',2);
-  }else oval(c,b.x,b.y,4,4,'#dbc29b');
+  }
   if(weapon!=='hands')oval(c,a.x,a.y,3.5,3.5,'#d4ba93');
   if(swing?.phase==='active'){
     const points=[];for(let i=0;i<=6;i++){
@@ -310,11 +323,13 @@ function drawMelee(r,actor,g,pose) {
 
 function drawGatherTool(r,actor,g,pose){
   const c=r.ctx,q=r.screen(actor.x,actor.y),age=g.time-actor.harvest.started;
+  q.x+=pose.lunge*pose.facing;q.y+=pose.bob;
   const angle=age<.12?-.4-age/.12*2.4:age<.22?-2.8+(age-.12)/.1*2.6:-.2+(age-.22)/.33*.3;
   c.save();
-  const armX=q.x+8*pose.facing;line(c,[[q.x-7*pose.facing,q.y-33],[q.x-12*pose.facing,q.y-23],[armX,q.y-30]],'#91a38d',6);
-  line(c,[[q.x-12*pose.facing,q.y-23],[armX,q.y-30]],'#d6ba93',4);
-  c.translate(armX,q.y-30);c.scale(pose.facing,1);c.rotate(angle);
+  const grip={x:q.x+9*pose.facing,y:q.y-28-Math.sin(Math.min(1,age/.22)*Math.PI)*3};
+  drawArm(c,{x:q.x-8*pose.facing,y:q.y-32},grip,-pose.facing,actor);
+  drawArm(c,{x:q.x+8*pose.facing,y:q.y-32},grip,pose.facing,actor);
+  c.translate(grip.x,grip.y);c.scale(pose.facing,1);c.rotate(angle);
   line(c,[[0,0],[25,0]],'#5e472e',6);line(c,[[0,-1],[25,-1]],'#c3a577',3);
   for(let i=0;i<4;i++)line(c,[[i*3,-3],[i*3+2,3]],'#72563c',1);
   if(actor.harvest.type==='wood'){r.poly([[20,-4],[31,-10],[35,-7],[33,7],[28,9],[20,3]],'#9eafa7','#536c6b');line(c,[[31,-10],[35,-7],[33,7],[28,9]],'#e3e4cf',2);line(c,[[22,-3],[28,-3],[27,3]],'#627b76');oval(c,22,0,1,1,'#d9c395');}

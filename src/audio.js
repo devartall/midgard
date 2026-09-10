@@ -1,8 +1,9 @@
 import {biomeAt} from './world.js';
 import {composeBar,INSTRUMENTS,instrumentSamples,instrumentBank} from './music.js';
 const hz=n=>440*2**((n-69)/12);
+export function audioSettings(value={}){const v=value&&typeof value==='object'?value:{};const volume=(key,fallback)=>typeof v[key]==='number'&&Number.isFinite(v[key])?Math.max(0,Math.min(1,v[key])):fallback;return {music:v.music!==false,effects:v.effects!==false,musicVolume:volume('musicVolume',.8),effectsVolume:volume('effectsVolume',.8)};}
 export class GameAudio {
- constructor(settings={music:true,effects:true}){this.settings={...settings};this.context=null;this.next=0;this.beat=0;this.voices=0;this.active=false;this.variation=0;this.ambientAt=0;this.bank=new Map();this.musicRegion=null;this.bar=0;this.pending=[];this.musicReady=false;this.retiredTracks=[];}
+ constructor(settings={music:true,effects:true}){this.settings=audioSettings(settings);this.context=null;this.next=0;this.beat=0;this.voices=0;this.active=false;this.variation=0;this.ambientAt=0;this.bank=new Map();this.musicRegion=null;this.bar=0;this.pending=[];this.musicReady=false;this.retiredTracks=[];}
  async unlock(){
   const Type=globalThis.AudioContext||globalThis.webkitAudioContext;if(!Type)return false;
   try{
@@ -33,7 +34,8 @@ export class GameAudio {
    worker.onerror=()=>{worker.terminate();fallback();};worker.postMessage('prepare');
   }catch{fallback();}
  }
- apply(){if(!this.context)return;this.music.gain.setTargetAtTime(this.settings.music?.32:0,this.context.currentTime,.1);this.effects.gain.setTargetAtTime(this.settings.effects?.5:0,this.context.currentTime,.03);}
+ apply(){if(!this.context)return;this.music.gain.setTargetAtTime(this.settings.music?.32*this.settings.musicVolume**1.5:0,this.context.currentTime,.1);this.effects.gain.setTargetAtTime(this.settings.effects?.5*this.settings.effectsVolume**1.5:0,this.context.currentTime,.03);}
+ setVolume(channel,value){if(!['music','effects'].includes(channel)||!Number.isFinite(value))return;this.settings[channel+'Volume']=Math.max(0,Math.min(1,value));this.apply();}
  set(channel,on){this.settings[channel]=!!on;this.apply();}
  tone(freq,end,duration,type,bus,volume=.3,when=this.context.currentTime,attack=.012,pan=0){
   if(this.voices>=40)return;
@@ -54,9 +56,9 @@ export class GameAudio {
   const c=this.context,{instrument:name,pitch,duration,volume,pan}=event,when=Math.max(c.currentTime+.005,event.when);
   if(this.voices>=40)return;
   if(!c.createBufferSource||!c.createBuffer){this.tone(hz(pitch),hz(pitch),duration,'sine',this.music,volume,when,.08,pan);return;}
-  const root=name==='drum'?48:Math.round(pitch/12)*12,key=name+root;let buffer=this.bank.get(key);
+  const root=['drum','shaker'].includes(name)?48:Math.round(pitch/12)*12,key=name+root;let buffer=this.bank.get(key);
   if(!buffer){const samples=instrumentSamples(name,22050,root);buffer=c.createBuffer(1,samples.length,22050);buffer.getChannelData(0).set(samples);this.bank.set(key,buffer);}
-  const amplitude=volume*({lyre:1.4,bowed:.8,flute:.8,horn:1,drum:1.2}[name]);
+  const amplitude=volume*({lyre:1.4,bowed:.8,flute:.8,horn:1,drum:1.2,cello:.85,dulcimer:1,bell:.7,shaker:.8}[name]);
   const source=c.createBufferSource(),gain=c.createGain(),stereo=c.createStereoPanner?.(),rate=2**((pitch-root)/12);this.voices++;
   source.buffer=buffer;source.playbackRate.value=rate;source.loop=INSTRUMENTS[name].loop;if(source.loop){source.loopStart=1;source.loopEnd=3;}
   gain.gain.setValueAtTime(.0001,when);gain.gain.exponentialRampToValueAtTime(amplitude,when+(source.loop?.12:.008));

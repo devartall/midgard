@@ -144,7 +144,7 @@ test('death drops retrievable inventory, keeps home/skills, resets boss, and per
 });
 test('block reduces damage without reflecting or stunning the attacker',()=>{
  const g=G.createGame(),e=G.makeEnemy('draugr',g.player.x+1,g.player.y,'e');
- g.player.blocking=true;G.damagePlayer(g,20,e);assert.equal(g.player.hp,96);assert.equal(e.stun,0);
+ g.player.inv.shield=1;g.player.shieldEquipped=true;g.player.blocking=true;G.damagePlayer(g,20,e);assert.equal(g.player.hp,96);assert.equal(e.stun,0);
  assert.equal('parry' in G,false);assert.equal('parry' in g.player,false);
 });
 test('archery consumes ammo; melee cannot hit through wall',()=>{

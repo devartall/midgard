@@ -108,6 +108,14 @@ test('UI boots, opens every panel, moves via keyboard, saves and pauses while hi
     key:'d'
   });
   elements.get('pauseBtn').onclick();
+  const panel=elements.get('panel'),beforeVolume=panel.innerHTML;
+  for(const [channel,value]of [['music','35'],['effects','65']]){
+    const event={target:{dataset:{volume:channel},value}};
+    panel.events.get('input')(event);assert.equal(elements.get('volume-'+channel).textContent,value+'%');
+    assert.equal(panel.innerHTML,beforeVolume,'drag does not recreate the slider');
+    panel.events.get('change')(event);
+  }
+  const levels=JSON.parse(storage.get('midgard-audio'));assert.equal(levels.musicVolume,.35);assert.equal(levels.effectsVolume,.65);
   const moved=JSON.parse(storage.get('forest-hearth-v1'));
   assert.ok(moved.player.x>initial.player.x);
   assert.ok(moved.time>initial.time);

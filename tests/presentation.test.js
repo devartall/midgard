@@ -17,9 +17,9 @@ test('every item and building has a dedicated multicolor illustration',()=>{
  }
 });
 test('each region has its own composition with simultaneous instrumental parts and rests',()=>{
- const scores=Object.keys(THEMES).map(region=>Array.from({length:16},(_,bar)=>composeBar(region,bar)));
+ const scores=Object.keys(THEMES).map(region=>Array.from({length:36},(_,bar)=>composeBar(region,bar)));
  assert.notDeepEqual(scores[0],scores[1]);assert.notDeepEqual(scores[1],scores[2]);
- for(const score of scores){const instruments=new Set(score.flatMap(bar=>bar.events.map(e=>e.instrument)));assert.ok(instruments.size>=3);assert.ok(score.every(bar=>bar.events.filter(e=>e.at<.2).length>=3));assert.ok(score.every(bar=>bar.events.every(e=>e.at>=0&&e.at<4&&e.volume>0&&e.duration>0)));}
+ for(const score of scores){const instruments=new Set(score.flatMap(bar=>bar.events.map(e=>e.instrument)));assert.ok(instruments.size>=3);assert.ok(new Set(score.map(bar=>bar.section)).size===6);assert.ok(score.some(bar=>bar.events.filter(e=>e.at<.2).length>=3));assert.notDeepEqual(score.slice(4,12).map(b=>b.events),score.slice(12,20).map(b=>b.events));assert.ok(score.every(bar=>bar.events.every(e=>e.at>=0&&e.at<4&&e.volume>0&&e.duration>0)));}
 });
 test('instrument samples have distinct spectra/envelopes, finite levels and smooth loop joins',()=>{
  const signatures=new Set();
@@ -29,7 +29,7 @@ test('instrument samples have distinct spectra/envelopes, finite levels and smoo
   signatures.add(data.slice(2000,2020).join(','));assert.equal(data.at(-1),0);
   if(INSTRUMENTS[name].loop)assert.ok(Math.abs(data[22050*3-1]-data[22050])<.2,name);
   else {const rms=(a,b)=>Math.sqrt(data.slice(a,b).reduce((s,v)=>s+v*v,0)/(b-a));assert.ok(rms(0,22050)>rms(66000,88000)*3,name);}
- }assert.equal(signatures.size,5);
+ }assert.equal(signatures.size,Object.keys(INSTRUMENTS).length);
 });
 test('music plays sample voices, fades between themes and honors mute/background state',()=>{
  const param=()=>({value:0,setValueAtTime(v){this.value=v;},setTargetAtTime(v){this.value=v;},exponentialRampToValueAtTime(v){this.value=v;}});

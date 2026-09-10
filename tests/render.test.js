@@ -6,7 +6,7 @@ import {
 from '../src/render.js';
 import * as G from '../src/game.js';
 function canvasMock(){
-  let calls=0;
+  let calls=0;const colors=new Set();
   const ctx=new Proxy({
   }, {
     get(target,key){
@@ -20,12 +20,12 @@ function canvasMock(){
         for(const arg of args)if(typeof arg==='number')assert.ok(Number.isFinite(arg),`${key}: non-finite coordinate`);
       };
     },set(target,key,v){
-      target[key]=v;
+      if(key==='fillStyle')colors.add(v);target[key]=v;
       return true;
     }
   });
   return {
-    style:{
+    colors,style:{
     },getContext:()=>ctx,get calls(){
       return calls;
     }
@@ -148,4 +148,14 @@ test('zoom enlarges both ground and local artwork while keeping pointer picking 
  const r=new Renderer(canvasMock()),anchor={...G.START},point={x:G.START.x+1,y:G.START.y};assert.equal(r.zoom,1.4);
  const screen=r.screen(point.x,point.y),back=r.world(screen.x,screen.y);assert.ok(G.distance(back,point)<1e-8);
  r.detail(anchor,view=>{const q=r.screen(anchor.x,anchor.y),local=view.screen(point.x,point.y,12),actual=r.screen(point.x,point.y,12*r.zoom);assert.ok(Math.abs(q.x+(local.x-q.x)*r.zoom-actual.x)<1e-8);assert.ok(Math.abs(q.y+(local.y-q.y)*r.zoom-actual.y)<1e-8);assert.equal(view.scale*r.zoom,r.scale);});
+});
+
+test('hero draws linen without default shield and shows only equipped armor and shield',()=>{
+ globalThis.innerWidth=844;globalThis.innerHeight=390;globalThis.devicePixelRatio=2;
+ const canvas=canvasMock(),r=new Renderer(canvas),g=G.createGame();
+ g.player.blocking=true;r.actor(g.player,g,true);
+ assert.ok(canvas.colors.has('#c2b393'));assert.equal(canvas.colors.has('#ac844f'),false);assert.equal(canvas.colors.has('#a68955'),false);
+ g.player.inv.armor=1;g.player.inv.shield=1;G.useItem(g,'armor');G.useItem(g,'shield');canvas.colors.clear();r.actor(g.player,g,true);
+ assert.ok(canvas.colors.has('#a68955'));assert.ok(canvas.colors.has('#ac844f'));
+ g.player.inv.bow=1;g.player.weapon='bow';canvas.colors.clear();r.actor(g.player,g,true);assert.equal(canvas.colors.has('#ac844f'),false);
 });
