@@ -20,7 +20,7 @@ test('windup and strike poses follow simulation events for hero and all monsters
     const g = G.createGame();
     const enemy = G.makeEnemy(type, g.player.x + .7, g.player.y, type);
     // A boss only engages inside its arena.
-    if (type === 'boss') { Object.assign(g.player, G.BOSS_POS); enemy.x = g.player.x + 1; enemy.y = g.player.y; }
+    if (type === 'boss') { Object.assign(g.player, G.BOSS_POS); enemy.x = g.player.x + 1; enemy.y = g.player.y; enemy.origin={...G.BOSS_POS}; }
     g.enemies = [enemy];
     const animator = new ActorAnimator();
     G.tick(g, .1); assert.equal(enemy.phase, 'windup');

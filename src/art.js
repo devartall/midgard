@@ -133,7 +133,7 @@ export function drawBuilding(r, p, g) {
 
 function humanoid(r, actor, g, pose, player) {
   const c = r.ctx, heavy = actor.type === 'breaker';
-  const cloth = player ? '#829c96' : heavy ? '#827451' : '#627566';
+  const cloth = actor.biome==='snow'?'#a7c7d6':actor.biome==='fire'?'#a36a59':player ? '#829c96' : heavy ? '#827451' : '#627566';
   const skin = player ? '#d6bd96' : '#9aa57d';
   c.save(); if (heavy) c.scale(1.28, 1.2);
   // Far arm and legs move in opposition; feet stay grounded at rest.
@@ -153,11 +153,13 @@ function humanoid(r, actor, g, pose, player) {
     r.poly([[-8, -26], [7, -26], [5, -15], [-6, -15]], '#a68955', '#d0b77d');
     for (let i = -4; i < 6; i += 4) line(c, [[i, -24], [i, -17]], '#715c39');
   }
-  oval(c, 0, -33, 6.5, 8, skin);
+  oval(c, 0, -33, 6.5, 8, pose.view==='back'?'#65543f':skin);
   r.poly([[-7, -34], [-6, -41], [4, -42], [8, -35], [3, -37]], player ? '#50695e' : '#485d43');
-  if (player) { r.poly([[-4, -30], [6, -31], [3, -24], [-3, -26]], '#796346'); }
-  else { line(c, [[-5, -38], [-11, -45]], '#a6a987', 2); line(c, [[4, -39], [10, -45]], '#a6a987', 2); }
-  c.fillStyle = player ? '#273d37' : '#e1bd77'; c.fillRect(2, -34, 3, 2);
+  if (player&&pose.view!=='back') { r.poly([[-4, -30], [6, -31], [3, -24], [-3, -26]], '#796346'); }
+  else if(!player) { line(c, [[-5, -38], [-11, -45]], '#a6a987', 2); line(c, [[4, -39], [10, -45]], '#a6a987', 2); }
+  c.fillStyle = player ? '#273d37' : '#e1bd77';
+  if(pose.view!=='back'){c.fillRect(2,-34,3,2);if(pose.view==='front')c.fillRect(-5,-34,3,2);}
+  else{line(c,[[-4,-38],[-3,-29],[0,-25]],'#ad9269',2);line(c,[[-6,-25],[0,-16],[6,-25]],'#506959',3);}
   if (player && g.player.weapon === 'bow' && g.player.inv.bow && !g.player.swing && !g.player.harvest) {
     const pull = pose.strike * 7;
     line(c, [[7, -25], [15, -23]], skin, 4);
@@ -188,6 +190,11 @@ function humanoid(r, actor, g, pose, player) {
 
 function wolf(r, pose) {
   const c = r.ctx;
+  if(pose.view&&pose.view!=='side'){
+    oval(c,0,-15,10,15,'#96a292');for(const side of [-1,1])line(c,[[side*7,-12],[side*8,pose.step*side*4]],'#657a63',3);
+    r.poly([[-8,-25],[-7,-38],[0,-31],[7,-38],[8,-25],[5,-19],[-5,-19]],'#bbc0a8');
+    if(pose.view==='front'){oval(c,-4,-28,1,1,'#f0c880');oval(c,4,-28,1,1,'#f0c880');oval(c,0,-22,3,2,'#263e34');}else line(c,[[0,-3],[4,6]],'#738777',4);return;
+  }
   for (let i = 0; i < 4; i++) {
     const x = i < 2 ? -10 : 10, stride = pose.step * (i % 2 ? -1 : 1) * 7;
     line(c, [[x, -11], [x + stride * .5, -5], [x + stride, 1]], i % 2 ? '#728376' : '#4b6154', 3);
@@ -204,21 +211,21 @@ function wolf(r, pose) {
 }
 
 function guardian(r, actor, pose) {
-  const c = r.ctx, glow = actor.hp < actor.maxHp * .5 ? '#efa875' : '#d4d38b';
+  const c = r.ctx, glow = actor.biome==='snow'?'#a9f4ff':actor.biome==='fire'?'#ff9d50':actor.hp < actor.maxHp * .5 ? '#efa875' : '#d4d38b';
   for (const side of [-1, 1]) {
     const stride = pose.step * side * 8;
     line(c, [[side * 10, -25], [side * 14 + stride * .5, -11], [side * 18 + stride, 0]], '#526449', 11);
     for (let i = -1; i <= 1; i++) line(c, [[side * 18 + stride, -2], [side * 18 + stride + i * 7, 5]], '#7d8960', 3);
   }
-  r.poly([[-20, -57], [15, -60], [24, -28], [10, -15], [-17, -20], [-26, -35]], '#536849', '#87966b');
+  r.poly([[-20, -57], [15, -60], [24, -28], [10, -15], [-17, -20], [-26, -35]], actor.biome==='snow'?'#729bab':actor.biome==='fire'?'#55414a':'#536849', '#87966b');
   for (let i = -2; i <= 2; i++) line(c, [[i * 7, -55], [i * 6 - 4, -42], [i * 7 + 2, -23]], '#a0a67666', 2);
-  r.poly([[-12, -60], [-22, -83], [-20, -62], [-32, -75], [-23, -48], [-12, -40], [13, -40], [24, -53], [33, -82], [21, -65], [21, -91], [9, -62]], '#829768', '#adba86');
-  oval(c, -6, -51, 3, 2, glow); oval(c, 7, -51, 3, 2, glow);
+  r.poly([[-12, -60], [-22, -83], [-20, -62], [-32, -75], [-23, -48], [-12, -40], [13, -40], [24, -53], [33, -82], [21, -65], [21, -91], [9, -62]], actor.biome==='snow'?'#afdae9':actor.biome==='fire'?'#a9654b':'#829768', '#adba86');
+  if(pose.view!=='back'){oval(c, -6, -51, 3, 2, glow); oval(c, 7, -51, 3, 2, glow);}if(actor.biome&&actor.biome!=='forest'){for(let i=-2;i<=2;i++)r.poly([[i*7,-58],[i*9,-83-Math.abs(i)*3],[i*7+5,-58]],glow);}
   r.poly([[-5, -36], [2, -41], [8, -32], [2, -25]], glow);
   for (const side of [-1, 1]) {
     c.save(); c.translate(side * 19, -47);
     c.rotate(side * (pose.windup * 2.2 - Math.sin(pose.strike * Math.PI) * .8 + pose.step * .12));
-    line(c, [[0, 0], [side * 9, 14], [side * 7, 31]], '#4f6344', 9);
+    line(c, [[0, 0], [side * 9, 14], [side * 7, 31]], actor.biome==='snow'?'#6a95a5':actor.biome==='fire'?'#4c383c':'#4f6344', 9);
     line(c, [[0, 0], [side * 9, 14], [side * 7, 31]], '#859367', 2);
     for (let i = -1; i <= 1; i++) line(c, [[side * 7, 29], [side * 7 + i * 6, 38]], '#b0b38a', 3);
     c.restore();

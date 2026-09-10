@@ -8,7 +8,7 @@ export class ActorAnimator {
   pose(actor, time) {
     let state = this.states.get(actor);
     if (!state) {
-      state = { x: actor.x, y: actor.y, time, phase: 0, pace: 0, facing: 1, strike: 0, windup: 0 };
+      state = { x: actor.x, y: actor.y, time, phase: 0, pace: 0, facing: 1, view: 'side', headingX:1, headingY:0, strike: 0, windup: 0 };
       this.states.set(actor, state);
     }
     const dt = time - state.time;
@@ -19,7 +19,13 @@ export class ActorAnimator {
       if (dt <= .25 && travel < 1) {
         state.phase += travel * 5.5;
         state.pace += (Math.min(1, travel / dt / 2.5) - state.pace) * (1 - Math.exp(-dt * 20));
-        if (Math.abs(dx - dy) > .001) state.facing = Math.sign(dx - dy);
+        if(travel>.002){
+          const sx=dx-dy,sy=(dx+dy)*.5,n=Math.hypot(sx,sy),blend=1-Math.exp(-dt*8);
+          state.headingX+=(sx/n-state.headingX)*blend;state.headingY+=(sy/n-state.headingY)*blend;
+          const vertical=Math.abs(state.headingY)>Math.abs(state.headingX)*(state.view==='side'?1.5:1.1);
+          state.view=vertical?(state.headingY<0?'back':'front'):'side';
+          if(!vertical&&Math.abs(state.headingX)>.25)state.facing=Math.sign(state.headingX);
+        }
       } else state.pace = 0;
       state.x = actor.x; state.y = actor.y; state.time = time;
     }

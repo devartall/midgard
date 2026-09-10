@@ -1,5 +1,13 @@
 // Hand-drawn SVG pictograms share a forged-metal outline; no network assets.
 const paths={
+ crystal:'m16 2 10 8-3 16-7 4-7-4-3-16Z M16 2v28M6 10l10 6 10-6',
+ obsidian:'m5 27 2-17 9-8 10 10 2 15ZM16 2l-3 15 10 10M7 10l6 7',
+ frostHeart:'M16 7C7-2 0 11 8 20l8 9 8-9C32 11 25-2 16 7ZM16 11v13m-6-7h12m-10-4 8 8m-8 0 8-8',
+ flameHeart:'M17 2C24 13 31 15 25 25c-4 7-17 5-19-2-3-7 2-11 5-15 0 7 5 8 6-6ZM17 17c-6 4-6 10 0 10s4-5 0-10',
+ furCloak:'m10 4 6 3 6-3 5 8 3 16-14-3-14 3 3-16ZM10 4l6 10 6-10M16 14v11',
+ fireCloak:'m10 4 6 3 6-3 5 8 3 16-14-3-14 3 3-16ZM16 11l-4 8 4 3 4-3Z',
+ rune:'m16 2 12 14-12 14L4 16ZM16 7v18m0-15 6 5-6 4-5-5',
+ emberSeal:'M16 2 29 9v14l-13 7-13-7V9ZM16 8l-6 14 6-4 6 4Z',
  herb:'M16 29V6M16 20C2 22 3 9 5 8c7 0 11 5 11 12M16 14C29 15 30 3 27 3c-7 0-11 5-11 11',
  mushroom:'M12 17v12h8V17M3 16C3-1 29-1 29 16ZM9 11h1m6-4h1m5 5h1',
  energy:'m18 2-12 17h9l-1 11 13-18h-9Z',

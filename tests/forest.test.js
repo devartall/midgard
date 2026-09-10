@@ -4,7 +4,7 @@ import * as G from '../src/game.js';
 import {GameAudio} from '../src/audio.js';
 const advance=(g,seconds)=>{for(let t=0;t<seconds;t+=.05)G.tick(g,.05);};
 test('expanded island has twice the former land area, five scenery types and seeded packs of 1–3',()=>{
- let land=0;for(let x=0;x<G.SIZE;x++)for(let y=0;y<G.SIZE;y++)if(G.walkable(x,y))land++;
+ let land=0;for(let x=0;x<G.SIZE;x++)for(let y=0;y<G.SIZE;y++)if(G.walkable(x,y)&&G.biomeAt(x,y)==='forest')land++;
  assert.ok(land>3407*1.85&&land<3407*2.15);
  assert.equal(new Set(G.SCENERY.map(o=>o.type)).size,5);
  const sizes=new Set();
@@ -35,7 +35,7 @@ test('new resource economy and save migration preserve possessions and boss comp
  const g=G.createGame(1);assert.ok(g.resources.some(r=>r.type==='herb'));assert.ok(g.resources.some(r=>r.type==='mushroom'));
  assert.deepEqual(G.RECIPES.potion.cost,{berry:2,herb:2});assert.equal(G.RECIPES.stew.cost.mushroom,2);
  g.landscape=2;g.bossDefeated=true;g.player.inv.wood=71;g.storage.hide=13;
- const loaded=G.loadGame(G.saveGame(g));assert.equal(loaded.landscape,3);assert.equal(loaded.player.inv.wood,71);assert.equal(loaded.storage.hide,13);assert.ok(loaded.enemies.find(e=>e.type==='boss').dead);
+ const loaded=G.loadGame(G.saveGame(g));assert.equal(loaded.landscape,4);assert.equal(loaded.player.inv.wood,71);assert.equal(loaded.storage.hide,13);assert.ok(loaded.enemies.find(e=>e.type==='boss').dead);
  assert.equal(loaded.animals.length,12);assert.deepEqual(loaded.sounds,[]);
 });
 test('audio waits for gesture, supports independent mute, bounded voices and background suspend',async()=>{

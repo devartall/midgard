@@ -31,7 +31,15 @@ export function drawNature(r,o,g){
 export function drawAnimal(r,a,g,pose){
  const c=r.ctx,q=r.screen(a.x,a.y),deer=a.type==='deer';c.save();c.translate(q.x,q.y+pose.bob);c.scale(pose.facing,1);
  oval(c,0,2,deer?19:10,4,'#132b2766');
- if(deer){
+ if(pose.view&&pose.view!=='side'){
+  const back=pose.view==='back';
+  oval(c,0,deer?-22:-9,deer?11:8,deer?16:9,deer?'#9b7b54':'#ab9b80');
+  for(const side of [-1,1])stroke(c,[[side*6,deer?-15:-5],[side*7,pose.step*side*3]],'#69563f',deer?3:2);
+  oval(c,0,deer?-39:-17,deer?6:5,deer?8:5,'#bfa17b');
+  if(!back){for(const side of [-1,1])oval(c,side*3,deer?-40:-17,1,1,'#1a2724');oval(c,0,deer?-35:-14,2,1.5,'#544537');}
+  else oval(c,0,deer?-12:-3,3,3,'#e1d7b8');
+  for(const side of [-1,1])stroke(c,[[side*3,deer?-44:-20],[side*7,deer?-55:-30],[side*10,deer?-51:-25]],'#cbbb99',2);
+ }else if(deer){
   for(let i=0;i<4;i++){const x=-12+i*8,step=pose.step*(i%2?5:-5);stroke(c,[[x,-16],[x+step,-7],[x+step*1.4,1]],i%2?'#9b7854':'#5f5040',3);}
   oval(c,0,-20,19,10,'#997954');oval(c,4,-17,10,5,'#bda37a');
   stroke(c,[[12,-21],[17,-33]],'#a08059',9);oval(c,21,-35,8,5,'#ba9970');oval(c,25,-37,1,1,'#192b25');
@@ -47,7 +55,9 @@ export function drawAnimal(r,a,g,pose){
 }
 export function drawDetailedResource(r,o,g){
  const c=r.ctx,q=r.screen(o.x,o.y);c.save();c.translate(q.x,q.y);
- if(o.type==='stone'){
+ if(o.type==='crystal'||o.type==='obsidian'){
+  const ice=o.type==='crystal';for(let i=0;i<3;i++){const x=(i-1)*10,h=18+i%2*13;r.poly([[x-6,1],[x-5,-h],[x,-h-7],[x+6,-h],[x+5,2]],ice?'#86cddd':'#493f58',ice?'#e2fcff':'#b2757e');stroke(c,[[x,-h-6],[x,0]],ice?'#f1ffff':'#b498b9',1.5);}
+ }else if(o.type==='stone'){
   r.poly([[-17,3],[-19,-9],[-8,-21],[10,-19],[21,-8],[14,6]],'#6e827e','#adb7a5');
   r.poly([[-19,-9],[-8,-21],[3,-8],[-3,4]],'#9ba99a');r.poly([[3,-8],[10,-19],[21,-8],[14,6]],'#526b6b');
   stroke(c,[[-7,-18],[-5,-12],[0,-9],[-2,-3],[4,2]],'#3c5857',1.5);stroke(c,[[8,-16],[7,-10],[12,-7]],'#c6cabc');

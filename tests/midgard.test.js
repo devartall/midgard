@@ -44,7 +44,7 @@ test('health potion recipe, capped healing, cooldown, pause, hotbar and save val
   loaded.player.quickbar[2]='<script>';assert.throws(()=>G.loadGame(G.saveGame(loaded)));
 });
 test('landscape has impassable lakes/mountains, reachable landmarks and clustered enemies; old homes survive migration',()=>{
-  const g=G.createGame();assert.ok(g.resources.length<600);assert.ok(g.enemies.length>=11);
+  const g=G.createGame();assert.ok(g.resources.length<1800);assert.ok(g.enemies.length>=11);
   for(let pack=0;pack<G.CAMPS.length;pack++){const count=g.enemies.filter(e=>e.pack===pack).length;assert.ok(count>=1&&count<=3);}
   for(const pos of [{x:23,y:19},{x:31,y:43}])assert.equal(G.canStand(g,pos.x,pos.y),false);
   for(const e of g.enemies)assert.ok(G.walkable(e.x,e.y));for(const r of g.resources)assert.ok(G.walkable(r.x,r.y));

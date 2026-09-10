@@ -3,7 +3,7 @@ import { wallEdges, toPlane, fromPlane, corners, hexRound, edgePoints } from './
 import { ActorAnimator } from './animation.js';
 import { drawActor, drawBuilding, drawFloor } from './art.js';
 import {
-  SCENERY, GATHER, context, CAMPS, PARTS, SIZE,DAY,START,BOSS_POS,NOTES,hash,terrain,isTrail,isNight,distance,inHome,homeValue
+  SCENERY,BOSSES,biomeAt, GATHER, context, CAMPS, PARTS, SIZE,DAY,START,BOSS_POS,NOTES,hash,terrain,isTrail,isNight,distance,inHome,homeValue
 }
 from './game.js';
 const palette=['#354b32','#3a5034','#3d5135','#344a31','#3e5438','#41563a'];
@@ -77,7 +77,7 @@ export class Renderer {
     c.fillText(str,x,y);
   }
   tree(r,g){
-    const c=this.ctx,q=this.screen(r.x,r.y),s=this.scale,h=hash(r.x,r.y);
+    const c=this.ctx,q=this.screen(r.x,r.y),s=this.scale,h=hash(r.x,r.y),biome=biomeAt(r.x,r.y);
     if(r.ready>g.time){
       this.box(r.x,r.y,.17,8,['#756549','#423c29','#554b34']);
       return;
@@ -99,7 +99,7 @@ export class Renderer {
     const tall=1.7+h*.8;
     for(let i=0; i<3; i++){
       const yy=q.y-s*(.35+i*.43),ww=s*(.72-i*.13)*(1+h*.3);
-      this.poly([[q.x-ww,yy],[q.x,yy-s*tall*.66],[q.x+ww,yy],[q.x+ww*.3,yy+5]],i===2?'#466047':i===1?'#304d39':'#254330');
+      this.poly([[q.x-ww,yy],[q.x,yy-s*tall*.66],[q.x+ww,yy],[q.x+ww*.3,yy+5]],biome==='snow'?(i===2?'#e0eef0':'#a3bec9'):biome==='fire'?(i===2?'#776362':'#3d393e'):i===2?'#466047':i===1?'#304d39':'#254330');
       this.poly([[q.x,yy-s*tall*.66],[q.x+ww,yy],[q.x+ww*.3,yy+5],[q.x,yy-3]],'#1b382f66');
       for (let branch=1; branch<4; branch++) {
         const bx=ww*branch/5, by=yy-s*tall*.45+branch*s*.16;
@@ -131,7 +131,7 @@ export class Renderer {
     const minY=Math.max(0,Math.floor(Math.min(...corners.map(p=>p.y)))),maxY=Math.min(SIZE-1,Math.ceil(Math.max(...corners.map(p=>p.y))));
     for(let x=minX; x<=maxX; x++)for(let y=minY; y<=maxY; y++){
       const h=hash(x,y),kind=terrain(x,y,g),water=kind==='water';
-      this.hex(x,y,1.01,water?'#254953':kind==='mountain'?'#536566':kind==='shore'?'#9a9475':kind==='heath'?'#6c7360':isTrail(x,y)?'#827852':palette[Math.floor(h*palette.length)],'#152e232e');
+      this.hex(x,y,1.01,water?'#254953':kind==='snow'?'#b5cbd4':kind==='ash'?'#55484c':kind==='lava'?'#e76c32':kind==='mountain'?'#536566':kind==='shore'?'#9a9475':kind==='heath'?'#6c7360':isTrail(x,y)?'#827852':palette[Math.floor(h*palette.length)],'#152e232e');
       if(water&&h>.6){const q=this.screen(x,y);c.strokeStyle='#79afad55';c.beginPath();c.moveTo(q.x-8,q.y);c.lineTo(q.x+6,q.y);c.stroke();}
       if(!water&&kind!=='mountain'&&!isTrail(x,y)&&h>.6){
         const q=this.screen(x,y);
@@ -151,11 +151,11 @@ export class Renderer {
       this.text(q.x,q.y-13,`ВАШ УЧАСТОК · ${homeValue(g)}`,'#d1c596',9);
     }
     for (const p of g.parts) if (p.type === 'floor') drawFloor(this, p);
-    for(let i=0; i<8; i++){
-      const a=i/8*Math.PI*2;
-      this.box(BOSS_POS.x+Math.cos(a)*4.6,BOSS_POS.y+Math.sin(a)*4.6,.35,22,['#818c7e','#455e53','#5a7361']);
+    for(const b of BOSSES){
+      if(distance(b,g.player)>25)continue;
+      for(let i=0;i<8;i++){const a=i/8*Math.PI*2;this.box(b.x+Math.cos(a)*4.6,b.y+Math.sin(a)*4.6,.35,b.biome==='forest'?22:32,b.biome==='snow'?['#c5e9ed','#52768b','#82aabd']:b.biome==='fire'?['#c7875d','#4e3942','#825151']:['#818c7e','#455e53','#5a7361']);}
+      this.diamond(b.x,b.y,3.7,'#16382722',b.biome==='fire'?'#ef956833':'#adc09b33');
     }
-    this.diamond(BOSS_POS.x,BOSS_POS.y,3.7,'#16382722','#adc09b33');
     for(const camp of CAMPS){
       this.hex(camp.x,camp.y,2.1,'#2c29284a','#92784e44');
       const q=this.screen(camp.x,camp.y);this.text(q.x,q.y-6,'ᛏ', '#a98c60',19);
@@ -239,7 +239,9 @@ export class Renderer {
       }
       else this.text(q.x,q.y-45-(1-fx.life)*15,fx.text,fx.color,12);
     }
-    for(const bolt of g.projectiles){const q=this.screen(bolt.x,bolt.y,20);c.strokeStyle='#b6db8999';c.lineWidth=4;c.beginPath();const tail=this.screen(bolt.x-bolt.vx*.12,bolt.y-bolt.vy*.12,20);c.moveTo(tail.x,tail.y);c.lineTo(q.x,q.y);c.stroke();c.fillStyle='#e2eeb5';c.beginPath();c.arc(q.x,q.y,5,0,Math.PI*2);c.fill();}
+    for(const bolt of g.projectiles){const q=this.screen(bolt.x,bolt.y,20);c.strokeStyle=bolt.biome==='snow'?'#b9e9ff':bolt.biome==='fire'?'#ff914d':'#b6db8999';c.lineWidth=4;c.beginPath();const tail=this.screen(bolt.x-bolt.vx*.12,bolt.y-bolt.vy*.12,20);c.moveTo(tail.x,tail.y);c.lineTo(q.x,q.y);c.stroke();c.fillStyle=bolt.biome==='fire'?'#ffda83':bolt.biome==='snow'?'#eefaff':'#e2eeb5';c.beginPath();c.arc(q.x,q.y,5,0,Math.PI*2);c.fill();}
+    const region=biomeAt(g.player.x,g.player.y);
+    if(region!=='forest'){c.save();c.fillStyle=region==='snow'?'#edf5f3bb':'#ffbd6877';for(let i=0;i<45;i++){const x=(i*127+Math.sin(g.time*.3+i)*25+g.time*(region==='snow'?9:3))%this.w,y=(i*83+g.time*(region==='snow'?24:-15)+this.h*100)%this.h;c.beginPath();c.arc(x,y,region==='snow'?1.4:1,0,Math.PI*2);c.fill();}c.restore();}
     const target=context(g);
     if(target?.kind==='resource'){
       const q=this.screen(target.x,target.y),active=target.ready<=g.time;
@@ -247,7 +249,7 @@ export class Renderer {
       if(active){
         const hits=target.hits||0,total=GATHER[target.type].hits;
         c.fillStyle='#102026ee';c.fillRect(q.x-32,q.y+9,64,20);
-        this.text(q.x,q.y+22,`${target.type==='wood'?'Дерево':target.type==='stone'?'Камень':target.type==='herb'?'Травы':target.type==='mushroom'?'Грибы':'Ягоды'} ${hits}/${total}`,'#f0d9a0',10);
+        this.text(q.x,q.y+22,`${target.type==='wood'?'Дерево':target.type==='stone'?'Камень':target.type==='crystal'?'Кристалл':target.type==='obsidian'?'Обсидиан':target.type==='herb'?'Травы':target.type==='mushroom'?'Грибы':'Ягоды'} ${hits}/${total}`,'#f0d9a0',10);
         c.fillStyle='#415a52';c.fillRect(q.x-30,q.y+30,60,3);c.fillStyle='#e3bd78';c.fillRect(q.x-30,q.y+30,60*hits/total,3);
       }
     }
@@ -271,17 +273,17 @@ export class Renderer {
   }
 
   map(canvas,g){
-    const c=canvas.getContext('2d'),unit=2.7;canvas.width=280;canvas.height=280;
-    const project=p=>{const v=toPlane(p.x,p.y);return{x:140+(v.x-72)*unit,y:140+(v.y-48*Math.sqrt(3)/2)*unit};};
-    c.fillStyle='#152c25';c.fillRect(0,0,280,280);
+    const c=canvas.getContext('2d'),unit=1.12;canvas.width=280;canvas.height=220;
+    const project=p=>{const v=toPlane(p.x,p.y);return{x:140+(v.x-117)*unit,y:110+(v.y-65)*unit};};
+    c.fillStyle='#152c25';c.fillRect(0,0,280,220);
     for(let x=0;x<SIZE;x++)for(let y=0;y<SIZE;y++){
       const vertices=corners(x,y);c.beginPath();vertices.forEach((v,i)=>{const q=project(v);if(i)c.lineTo(q.x,q.y);else c.moveTo(q.x,q.y);});c.closePath();
-      const kind=terrain(x,y,g);c.fillStyle=kind==='water'?'#3e7181':kind==='mountain'?'#bac6ba':kind==='shore'?'#b2a77d':kind==='heath'?'#828165':isTrail(x,y)?'#8e8255':palette[Math.floor(hash(x,y)*6)];c.fill();
+      const kind=terrain(x,y,g);c.fillStyle=kind==='water'?'#3e7181':kind==='snow'?'#c9dde7':kind==='ash'?'#6f5154':kind==='lava'?'#ff913c':kind==='mountain'?'#bac6ba':kind==='shore'?'#b2a77d':kind==='heath'?'#828165':isTrail(x,y)?'#8e8255':palette[Math.floor(hash(x,y)*6)];c.fill();
     }
     const dot=(p,color,r)=>{const q=project(p);c.fillStyle=color;c.beginPath();c.arc(q.x,q.y,r,0,Math.PI*2);c.fill();};
     for(const camp of CAMPS){const q=project(camp);c.strokeStyle='#d3a165';c.beginPath();c.arc(q.x,q.y,6,0,Math.PI*2);c.stroke();}
     if(g.home)dot(g.home,'#e2ca84',5);for(const grave of g.graves)dot(grave,'#c397cb',3);
     for(const n of NOTES)dot(n,'#b6c1a1',2);
-    dot(BOSS_POS,g.bossDefeated?'#839573':'#ce8974',5);dot(START,'#b9b795',3);dot(g.player,'#f8edcb',4);
+    for(const b of BOSSES)dot(b,g.defeated?.includes(b.biome)?'#839573':'#ce8974',5);dot(START,'#b9b795',3);dot(g.player,'#f8edcb',4);
   }
 }

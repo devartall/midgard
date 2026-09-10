@@ -124,3 +124,14 @@ test('expanded scenery, animals and all boss telegraphs render finite geometry',
   g.projectiles=[{x:boss.x,y:boss.y,vx:2,vy:1,life:1}];g.effects=[{x:boss.x,y:boss.y,ring:4.6,life:.4,text:'КОРНИ',color:'#fff'}];r.draw(g);
  }
 });
+
+test('snow and fire terrain, minerals, magic and front/back poses draw finite geometry',async()=>{
+ const {drawAnimal}=await import('../src/nature.js');const {drawActor}=await import('../src/art.js');
+ const g=G.createGame(1),r=new Renderer(canvasMock());
+ for(const b of G.BOSSES){Object.assign(g.player,b);r.camera={...b};g.time=3;r.draw(g);r.map(canvasMock(),g);}
+ for(const view of ['front','back']){
+  const pose={view,facing:1,step:.2,bob:0,pace:1,windup:0,strike:0,lunge:0};
+  for(const actor of [g.player,...g.enemies])drawActor(r,actor,g,actor===g.player,pose);
+  for(const a of g.animals)drawAnimal(r,a,g,pose);
+ }
+});

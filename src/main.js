@@ -72,7 +72,7 @@ function inventoryGrid(inv,selectable=false){
 function itemDetails(k){
   if(!k||!game.player.inv[k])return '<aside class="item-detail"><div class="detail-emblem">ᛉ</div><h3>Снаряжение странника</h3><p>Выберите предмет, чтобы узнать его свойства, использовать или назначить на пояс.</p><small>Броня действует, пока находится в сумке.</small></aside>';
   const f=G.FOODS[k],usable=G.usableItem(k);
-  return `<aside class="item-detail">${icon(k,'detail-icon')}<small>${f?'ПРИПАСЫ':k==='potion'?'АЛХИМИЯ':usable?'ОРУЖИЕ':'МАТЕРИАЛЫ'}</small><h3>${G.ITEMS[k]}</h3><p>${f?`Сытость: ${f.sat/60} мин.${f.buff?` +${f.hp} к максимуму здоровья на ${f.buff/60} мин.`:''}`:k==='potion'?'Восстанавливает 40 здоровья. Между применениями — 20 секунд. Варится у очага из 2 ягод и 2 лечебных трав.':k==='sword'?'Направленный взмах. Подойдите на длину клинка.':k==='bow'?'Дальний бой. Каждый выстрел расходует стрелу.':k==='armor'?`Защищает от ударов. Прочность: ${Math.floor(game.player.durability)}%.`:'Пригодится для строительства и ремесла.'}</p>${usable?button(f?'Съесть':k==='potion'?'Выпить':'Взять в руки',`use:${k}`,'primary'):''}${k==='armor'?button('Ремонт · 2 шкуры','armor-repair'):''}${usable?'<h4>Назначить на пояс</h4><div class="slot-assign">'+Array.from({length:9},(_,i)=>button(i+1,`assign:${k}:${i}`,game.player.quickbar[i]===k?'selected':'')).join('')+'</div><small>Цифры 1–9 или касание ячейки в игре.</small>':''}</aside>`;
+  return `<aside class="item-detail">${icon(k,'detail-icon')}<small>${f?'ПРИПАСЫ':k==='potion'?'АЛХИМИЯ':usable?'ОРУЖИЕ':'МАТЕРИАЛЫ'}</small><h3>${G.ITEMS[k]}</h3><p>${f?`Сытость: ${f.sat/60} мин.${f.buff?` +${f.hp} к максимуму здоровья на ${f.buff/60} мин.`:''}`:k==='potion'?'Восстанавливает 40 здоровья. Между применениями — 20 секунд. Варится у очага из 2 ягод и 2 лечебных трав.':k==='rune'?'Ледяная вспышка: 45 урона и оглушение ближайшей цели. 30 энергии, перерыв 4 секунды. Назначьте на пояс для боя.':k==='furCloak'?'Защищает от мороза, пока находится в сумке.':k==='fireCloak'?'Защищает от жара, пока находится в сумке.':k==='emberSeal'?'Усиливает урон оружия на 30%, пока находится в сумке.':k==='sword'?'Направленный взмах. Подойдите на длину клинка.':k==='bow'?'Дальний бой. Каждый выстрел расходует стрелу.':k==='armor'?`Защищает от ударов. Прочность: ${Math.floor(game.player.durability)}%.`:'Пригодится для строительства и ремесла.'}</p>${usable?button(f?'Съесть':k==='potion'?'Выпить':'Взять в руки',`use:${k}`,'primary'):''}${k==='armor'?button('Ремонт · 2 шкуры','armor-repair'):''}${usable?'<h4>Назначить на пояс</h4><div class="slot-assign">'+Array.from({length:9},(_,i)=>button(i+1,`assign:${k}:${i}`,game.player.quickbar[i]===k?'selected':'')).join('')+'</div><small>Цифры 1–9 или касание ячейки в игре.</small>':''}</aside>`;
 }
 function renderQuickbar(){
   const p=game.player,signature=JSON.stringify([p.quickbar,p.inv,p.weapon,Math.ceil(p.potionCooldown)]);if(signature===barSignature)return;barSignature=signature;
@@ -116,7 +116,7 @@ function renderPanel(){
   const p=game.player;
   let html='';
   if(panelName==='intro'){
-    html=`<div class="intro"><div class="nordic-crest"><span>ᛉ</span><i>ᚠ ᚢ ᚦ ᚨ ᚱ ᚲ</i></div><div class="eyebrow">САГА ОЧАГА · ОДИНОЧНОЕ ПРИКЛЮЧЕНИЕ</div><h1 id="panelTitle">Мидгард</h1><p class="lead">Под ветвями мирового древа.<br>Возведите свой дом. Переживите тьму.</p><div class="features"><span>${icon('wall')} Свой чертог</span><span>${icon('sword')} Опасные ночи</span><span>${icon('journal')} Руны леса</span></div><p>Собирайте припасы, обустройте убежище и найдите древнего хранителя. Ночью лес становится опаснее. Все действия происходят только пока вы играете.</p><div class="row">${button(knownSave?'Продолжить путь':'Войти в лес','play','primary')}${knownSave?button('Новый путь','new-confirm','secondary'):''}${button('Управление','help','secondary')}</div>${saveError?`<p class="notice">${escape(saveError)}</p>`:''}<footer>Лесная проверка · обычная сложность · без аккаунта</footer></div>`;
+    html=`<div class="intro"><div class="nordic-crest"><span>ᛉ</span><i>ᚠ ᚢ ᚦ ᚨ ᚱ ᚲ</i></div><div class="eyebrow">САГА ОЧАГА · ОДИНОЧНОЕ ПРИКЛЮЧЕНИЕ</div><h1 id="panelTitle">Мидгард</h1><p class="lead">Под ветвями мирового древа.<br>Возведите свой дом. Переживите тьму.</p><div class="features"><span>${icon('wall')} Свой чертог</span><span>${icon('sword')} Опасные ночи</span><span>${icon('journal')} Руны леса</span></div><p>Собирайте припасы, обустройте убежище и найдите древнего хранителя. Ночью лес становится опаснее. Все действия происходят только пока вы играете.</p><div class="row">${button(knownSave?'Продолжить путь':'Войти в лес','play','primary')}${knownSave?button('Новый путь','new-confirm','secondary'):''}${button('Управление','help','secondary')}</div>${saveError?`<p class="notice">${escape(saveError)}</p>`:''}<footer>Три земли · обычная сложность · без аккаунта</footer></div>`;
   }
   else if(panelName==='bag'){
     html=title('Сумка странника')+'<div class="inventory-layout">'+inventoryGrid(p.inv,true)+itemDetails(selectedItem)+'</div><p class="muted">Вещи остаются на месте гибели. Пояс — быстрый доступ к предметам из сумки.</p>';
@@ -448,12 +448,12 @@ function hud(){
   $('statusEffects').innerHTML=G.statusEffects(game).map(effect=>`<span class="status-icon ${effect.kind}" role="img" aria-label="${effect.name}" title="${effect.name}">${icon(effect.icon)}${effect.seconds?`<small>${effect.seconds<60?`${Math.ceil(effect.seconds)}с`:`${Math.ceil(effect.seconds/60)}м`}</small>`:''}</span>`).join('');
   $('clock').textContent=`${night?'Ночь':'День'} ${Math.floor(game.time/G.DAY)+1}`;
   $('sun').textContent=night?'☾':'☀';
-  $('phase').textContent=`${night?'До рассвета':'До ночи'} ${Math.floor((night?G.DAY-phase:300-phase)/60)}:${String(Math.floor((night?G.DAY-phase:300-phase)%60)).padStart(2,'0')} · лес`;
+  $('phase').textContent=`${night?'До рассвета':'До ночи'} ${Math.floor((night?G.DAY-phase:300-phase)/60)}:${String(Math.floor((night?G.DAY-phase:300-phase)%60)).padStart(2,'0')} · ${G.BIOME_NAMES[G.biomeAt(p.x,p.y)]}`;
   let objective=['Свой угол в лесу','Соберите дерево, отметьте участок'];
   if(game.home)objective=['Первые стены','Пол, замкнутые стены, дверь и очаг'];
   if(game.parts.some(p=>p.type==='fire'))objective=['Подготовка к вылазке','Верстак, снаряжение и еда'];
   if(p.inv.sword||p.inv.bow)objective=['Древний круг','Исследуйте лес к северо-востоку'];
-  if(game.bossDefeated)objective=['Лес помнит вас','Хранитель повержен. Развивайте дом'];
+  if(game.bossDefeated)objective=['В снега Йотунхейма','Создайте меховой плащ. Путь на восток'];if(game.defeated.includes('snow'))objective=['Земля пламени','Создайте огнестойкий плащ. Идите на юг'];if(game.defeated.includes('fire'))objective=['Сага трёх земель','Хранители повержены'];
   $('objectiveTitle').textContent=objective[0];
   $('objectiveText').textContent=objective[1];
   $('interact').innerHTML=icon(context?.kind==='resource'?context.type:'hand')+`<small>${context?escape(context.label):'Действие'} · E</small>`;
@@ -463,9 +463,10 @@ function hud(){
   const invaders=G.invaders(game).length,raiders=game.enemies.filter(e=>e.raid&&!e.dead).length;
   $('raid').classList.toggle('hidden',!game.raidPending&&!raiders&&!invaders);
   $('raid').textContent=game.raidPending?`Вой в лесу · нападение через ${Math.ceil(game.raidWarning)} с`:`Дом под угрозой · внутри: ${invaders} · нападающих: ${raiders}`;
-  const boss=game.enemies.find(e=>e.type==='boss');
+  const boss=game.enemies.filter(e=>e.type==='boss'&&!e.dead).sort((a,b)=>G.distance(p,a)-G.distance(p,b))[0];
   $('bossHud').classList.toggle('hidden',!boss||boss.dead||G.distance(p,boss)>17);
   if(boss){
+    $('bossName').textContent=G.BOSSES.find(b=>b.biome===(boss.biome||'forest')).name;
     $('bossFill').style.width=`${Math.max(0,boss.hp/boss.maxHp*100)}%`;
     $('bossPhase').textContent=boss.phase==='windup'?({ranged:'Залп корней — двигайтесь в сторону',slam:'Круговой удар — отступите',swipe:'Замах — выйдите из сектора'})[boss.attackKind]||'Замах':boss.hp<boss.maxHp*.5?'Ярость йотуна':'Страж мирового древа';
   }
