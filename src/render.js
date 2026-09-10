@@ -19,6 +19,7 @@ export class Renderer {
     this.w=0;
     this.h=0;
     this.scale=1;
+    this.zoom=1.4;
     this.camera={
       x:START.x,y:START.y
     };
@@ -27,7 +28,7 @@ export class Renderer {
   resize(){
     this.w=innerWidth;
     this.h=innerHeight;
-    this.scale=this.h<500?25:32;
+    this.scale=(this.h<500?25:32)*this.zoom;
     const dpr=Math.min(devicePixelRatio||1,2);
     this.canvas.width=Math.round(this.w*dpr);
     this.canvas.height=Math.round(this.h*dpr);
@@ -112,14 +113,15 @@ export class Renderer {
     }
     c.restore();
   }
-  resource(r,g){
+  resource(r,g){return this.detail(r,view=>view.resourceLocal(r,g));}
+  resourceLocal(r,g){
     if(r.ready>g.time){if(r.type==='wood'&&!r.variant)this.tree(r,g);return;}
     if(r.variant){drawNature(this,r,g);return;}
     if(r.type==='wood')this.tree(r,g);else drawDetailedResource(this,r,g);
   }
-  part(p, g) { drawBuilding(this, p, g); }
+  part(p, g) { this.detail(p,view=>drawBuilding(view,p,g)); }
   actor(actor, g, player = false) {
-    drawActor(this, actor, g, player, this.animator.pose(actor, g.time));
+    this.detail(actor,view=>drawActor(view,actor,g,player,this.animator.pose(actor,g.time)));
   }
   draw(g,buildType=null,pointer=null,buildEdge=null,preview=null){
     const c=this.ctx;
@@ -128,7 +130,7 @@ export class Renderer {
     c.fillStyle='#243e38';
     c.fillRect(0,0,this.w,this.h);
     // Visible region only. Static procedural details are deterministic.
-    const corners=[this.world(-100,-120),this.world(this.w+100,-120),this.world(-100,this.h+180),this.world(this.w+100,this.h+180)];
+    const corners=[this.world(-100,-120),this.world(this.w+100,-120),this.world(-100,this.h+270),this.world(this.w+100,this.h+270)];
     const minX=Math.max(0,Math.floor(Math.min(...corners.map(p=>p.x)))),maxX=Math.min(SIZE-1,Math.ceil(Math.max(...corners.map(p=>p.x))));
     const minY=Math.max(0,Math.floor(Math.min(...corners.map(p=>p.y)))),maxY=Math.min(SIZE-1,Math.ceil(Math.max(...corners.map(p=>p.y))));
     this.ground.draw(this,g,corners);
@@ -150,16 +152,16 @@ export class Renderer {
       const q=this.screen(g.home.x,g.home.y-5);
       this.text(q.x,q.y-13,`ВАШ УЧАСТОК · ${homeValue(g)}`,'#d1c596',9);
     }
-    for (const p of g.parts) if (p.type === 'floor') drawFloor(this, p);
+    for (const p of g.parts) if (p.type === 'floor') this.detail(p,view=>drawFloor(view,p));
     for(const b of BOSSES){
       if(distance(b,g.player)>25)continue;
-      for(let i=0;i<8;i++){const a=i/8*Math.PI*2;this.box(b.x+Math.cos(a)*4.6,b.y+Math.sin(a)*4.6,.35,b.biome==='forest'?22:32,b.biome==='snow'?['#c5e9ed','#52768b','#82aabd']:b.biome==='fire'?['#c7875d','#4e3942','#825151']:['#818c7e','#455e53','#5a7361']);}
+      for(let i=0;i<8;i++){const a=i/8*Math.PI*2;this.box(b.x+Math.cos(a)*4.6,b.y+Math.sin(a)*4.6,.35,(b.biome==='forest'?22:32)*this.zoom,b.biome==='snow'?['#c5e9ed','#52768b','#82aabd']:b.biome==='fire'?['#c7875d','#4e3942','#825151']:['#818c7e','#455e53','#5a7361']);}
       this.diamond(b.x,b.y,3.7,'#16382722',b.biome==='fire'?'#ef956833':'#adc09b33');
     }
     for(const camp of CAMPS){
       const spot=this.screen(camp.x,camp.y),shade=c.createRadialGradient(spot.x,spot.y,0,spot.x,spot.y,this.scale*2);shade.addColorStop(0,'#2c29284a');shade.addColorStop(1,'#2c292800');c.fillStyle=shade;c.fillRect(spot.x-this.scale*2,spot.y-this.scale*2,this.scale*4,this.scale*4);
       const q=this.screen(camp.x,camp.y);this.text(q.x,q.y-6,'ᛏ', '#a98c60',19);
-      for(let i=0;i<3;i++)this.box(camp.x+(i-1)*1.1,camp.y+1,.17,13,['#8b927f','#3e5150','#596b60']);
+      for(let i=0;i<3;i++)this.box(camp.x+(i-1)*1.1,camp.y+1,.17,13*this.zoom,['#8b927f','#3e5150','#596b60']);
     }
     const objects=[];
     const visible=o=>o.x>=minX&&o.x<=maxX&&o.y>=minY&&o.y<=maxY;
@@ -194,11 +196,11 @@ export class Renderer {
       if(kind==='resource'){c.save();const elapsed=g.time-o.struckAt;if(elapsed>=0&&elapsed<.2)c.translate(Math.sin(elapsed*75)*3*(1-elapsed/.2),0);this.resource(o,g);c.restore();}
       else if(kind==='part')this.part(o,g);
       else if(kind==='mountain')this.mountain(o,g);
-      else if(kind==='nature')drawNature(this,o,g);
-      else if(kind==='animal')drawAnimal(this,o,g,this.animator.pose(o,g.time));
+      else if(kind==='nature')this.detail(o,view=>drawNature(view,o,g));
+      else if(kind==='animal')this.detail(o,view=>drawAnimal(view,o,g,this.animator.pose(o,g.time)));
       else if(kind==='enemy'||kind==='player')this.actor(o,g,kind==='player');
       else{
-        this.box(o.x,o.y,.3,kind==='note'?27:14,['#a0a28a','#586b60','#718577']);
+        this.box(o.x,o.y,.3,(kind==='note'?27:14)*this.zoom,['#a0a28a','#586b60','#718577']);
         const q=this.screen(o.x,o.y);
         this.text(q.x,q.y-12,kind==='note'?'ᚱ':'ᛟ','#d6d49e',15);
       }
@@ -265,7 +267,15 @@ export class Renderer {
       }
     }else if(buildType&&pointer){const p=this.world(pointer.x,pointer.y),cell=hexRound(p.x,p.y);this.hex(cell.x,cell.y,.98,'#c8b78444','#eee2b1');}
   }
-  mountain(p,g){drawMountain(this,p,g);}
+  mountain(p,g){this.detail(p,view=>drawMountain(view,p,g));}
+  // World positions and picking use the zoomed projection. Local artwork uses
+  // its original units and receives the same zoom, including hands and props.
+  detail(anchor,draw){
+    const q=this.screen(anchor.x,anchor.y),zoom=this.zoom,c=this.ctx,view=Object.create(this);
+    view.scale=this.scale/zoom;
+    view.screen=(x,y,z=0)=>{const p=this.screen(x,y,z*zoom);return{x:q.x+(p.x-q.x)/zoom,y:q.y+(p.y-q.y)/zoom};};
+    c.save();c.translate(q.x,q.y);c.scale(zoom,zoom);c.translate(-q.x,-q.y);draw(view);c.restore();
+  }
 
   map(canvas,g){
     const c=canvas.getContext('2d'),unit=1.12;canvas.width=280;canvas.height=220;

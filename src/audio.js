@@ -1,11 +1,8 @@
 import {biomeAt} from './world.js';
-// Original arranged score: eight-bar phrases, modal harmony, bowed pads,
-// plucked strings, breathy flute and frame drums. All synthesis stays local.
-export const SCORE=[62,69,65,64,62,57,60,64,65,72,69,67,65,62,64,57,62,65,69,74,72,69,65,64,60,64,67,69,65,64,62,57];
-const CHORDS=[[50,57,62,65],[46,53,58,62],[53,60,65,69],[48,55,60,64],[50,57,62,69],[43,50,58,62],[46,53,60,65],[45,52,61,64]];
+import {composeBar,INSTRUMENTS,instrumentSamples,instrumentBank} from './music.js';
 const hz=n=>440*2**((n-69)/12);
 export class GameAudio {
- constructor(settings={music:true,effects:true}){this.settings={...settings};this.context=null;this.next=0;this.beat=0;this.voices=0;this.active=false;this.variation=0;this.ambientAt=0;}
+ constructor(settings={music:true,effects:true}){this.settings={...settings};this.context=null;this.next=0;this.beat=0;this.voices=0;this.active=false;this.variation=0;this.ambientAt=0;this.bank=new Map();this.musicRegion=null;this.bar=0;this.pending=[];this.musicReady=false;this.retiredTracks=[];}
  async unlock(){
   const Type=globalThis.AudioContext||globalThis.webkitAudioContext;if(!Type)return false;
   try{
@@ -21,12 +18,22 @@ export class GameAudio {
      const noise=c.createBuffer(1,c.sampleRate*2,c.sampleRate),data=noise.getChannelData(0);let brown=0;
      for(let i=0;i<data.length;i++){brown=(brown+(Math.random()*2-1)*.12)/1.03;data[i]=brown;}this.noiseBuffer=noise;
     }
-    this.apply();
+    this.apply();this.prepareBank();
    }
    await this.context.resume();this.active=true;this.next=this.context.currentTime;return true;
   }catch{return false;}
  }
- apply(){if(!this.context)return;this.music.gain.setTargetAtTime(this.settings.music?.22:0,this.context.currentTime,.1);this.effects.gain.setTargetAtTime(this.settings.effects?.5:0,this.context.currentTime,.03);}
+ prepareBank(){
+  const c=this.context;if(!c.createBuffer){this.musicReady=true;return;}
+  const receive=({name,root,samples})=>{const buffer=c.createBuffer(1,samples.length,22050);buffer.getChannelData(0).set(samples);this.bank.set(name+root,buffer);};
+  const fallback=()=>{const queue=instrumentBank();const next=()=>{const item=queue.shift();if(!item){this.musicReady=true;return;}receive({...item,samples:instrumentSamples(item.name,22050,item.root)});setTimeout(next,10);};next();};
+  if(typeof Worker==='undefined'){fallback();return;}
+  try{const worker=new Worker(new URL('./music-worker.js',import.meta.url),{type:'module'});
+   worker.onmessage=({data})=>{if(data.ready){this.musicReady=true;worker.terminate();}else receive(data);};
+   worker.onerror=()=>{worker.terminate();fallback();};worker.postMessage('prepare');
+  }catch{fallback();}
+ }
+ apply(){if(!this.context)return;this.music.gain.setTargetAtTime(this.settings.music?.32:0,this.context.currentTime,.1);this.effects.gain.setTargetAtTime(this.settings.effects?.5:0,this.context.currentTime,.03);}
  set(channel,on){this.settings[channel]=!!on;this.apply();}
  tone(freq,end,duration,type,bus,volume=.3,when=this.context.currentTime,attack=.012,pan=0){
   if(this.voices>=40)return;
@@ -39,9 +46,23 @@ export class GameAudio {
  noise(duration,frequency,volume,when=this.context.currentTime){
   if(!this.noiseBuffer||this.voices>=40)return;
   const c=this.context,source=c.createBufferSource(),filter=c.createBiquadFilter(),gain=c.createGain();this.voices++;
-  source.buffer=this.noiseBuffer;filter.type='bandpass';filter.frequency.value=frequency;filter.Q.value=.7;
+  source.buffer=this.noiseBuffer;source.loop=true;filter.type='bandpass';filter.frequency.value=frequency;filter.Q.value=.7;
   gain.gain.setValueAtTime(.0001,when);gain.gain.exponentialRampToValueAtTime(Math.max(.0002,volume),when+.008);gain.gain.exponentialRampToValueAtTime(.0001,when+duration);
   source.connect(filter);filter.connect(gain);gain.connect(this.effects);source.onended=()=>{this.voices--;source.disconnect();filter.disconnect();gain.disconnect();};source.start(when,(this.variation++%7)*.13);source.stop(when+duration);
+ }
+ instrument(event){
+  const c=this.context,{instrument:name,pitch,duration,volume,pan}=event,when=Math.max(c.currentTime+.005,event.when);
+  if(this.voices>=40)return;
+  if(!c.createBufferSource||!c.createBuffer){this.tone(hz(pitch),hz(pitch),duration,'sine',this.music,volume,when,.08,pan);return;}
+  const root=name==='drum'?48:Math.round(pitch/12)*12,key=name+root;let buffer=this.bank.get(key);
+  if(!buffer){const samples=instrumentSamples(name,22050,root);buffer=c.createBuffer(1,samples.length,22050);buffer.getChannelData(0).set(samples);this.bank.set(key,buffer);}
+  const amplitude=volume*({lyre:1.4,bowed:.8,flute:.8,horn:1,drum:1.2}[name]);
+  const source=c.createBufferSource(),gain=c.createGain(),stereo=c.createStereoPanner?.(),rate=2**((pitch-root)/12);this.voices++;
+  source.buffer=buffer;source.playbackRate.value=rate;source.loop=INSTRUMENTS[name].loop;if(source.loop){source.loopStart=1;source.loopEnd=3;}
+  gain.gain.setValueAtTime(.0001,when);gain.gain.exponentialRampToValueAtTime(amplitude,when+(source.loop?.12:.008));
+  gain.gain.setValueAtTime(amplitude,when+Math.max(.15,duration-.25));gain.gain.exponentialRampToValueAtTime(.0001,when+duration+.3);
+  source.connect(gain);if(stereo){stereo.pan.value=pan;gain.connect(stereo);stereo.connect(this.track||this.music);}else gain.connect(this.track||this.music);
+  source.onended=()=>{this.voices--;source.disconnect();gain.disconnect();stereo?.disconnect();};source.start(when);source.stop(when+duration+.35);
  }
  play(type,volume=1){
   if(!this.context||!this.active||!this.settings.effects)return;
@@ -60,25 +81,24 @@ export class GameAudio {
  update(g,active){
   const events=g.sounds?.splice(0)||[];if(!this.context)return;
   if(!active){if(this.active){this.context.suspend().catch(()=>{});this.active=false;}return;}
-  if(!this.active){this.context.resume().catch(()=>{});this.active=true;this.next=this.context.currentTime;}
+  if(!this.active){this.context.resume().catch(()=>{});this.active=true;this.next=this.context.currentTime;this.pending=[];}
   for(const event of events){const dx=event.x-g.player.x,dy=event.y-g.player.y,d=Math.sqrt(dx*dx+dx*dy+dy*dy);if(d<22)this.play(event.type,Math.max(.05,1-d/22));}
   if(this.settings.effects&&this.context.currentTime>=this.ambientAt){const region=biomeAt(g.player.x,g.player.y);if(region==='snow')this.noise(1.8,550,.09);else if(region==='fire'){this.noise(.7,170,.12);this.noise(.14,1900,.15,this.context.currentTime+.4);}else this.noise(1.2,1000,.035);this.ambientAt=this.context.currentTime+3.5;}
-  if(!this.settings.music){this.next=this.context.currentTime;return;}
-  const danger=g.enemies.some(e=>e.type==='boss'&&!e.dead&&Math.hypot(e.x-g.player.x,e.y-g.player.y)<17),biome=biomeAt(g.player.x,g.player.y);
-  const c=this.context,step=danger?.25:biome==='snow'?.57:biome==='fire'?.4:.48;
-  if(this.next<c.currentTime)this.next=c.currentTime;
-  while(this.next<c.currentTime+.15){
-   const b=this.beat,bar=Math.floor(b/8),section=Math.floor(bar/8)%4,chord=CHORDS[bar%8],transpose=biome==='snow'?5:biome==='fire'?-5:0,time=this.next;
-   const instrument=(note,duration,volume,type='triangle',delay=0,attack=.012,pan=0)=>{const f=hz(note+transpose);this.tone(f,f*.999,duration,type,this.music,volume,time+delay,attack,pan);};
-   // Slow harmonic bed; staggered attack and stereo voicing avoid a flat organ chord.
-   if(b%8===0){for(let i=0;i<4;i++)instrument(chord[i],step*8+.4,.065,'sine',i*.025,.4,(i-1.5)*.35);instrument(chord[0]-12,step*6,.16,'triangle',0,.1);}
-   const arpeggio=[0,2,1,3,2,1,3,2][b%8];
-   if(section!==3||b%2===0){instrument(chord[arpeggio]+12,1.15,.16,'triangle',0,.008,b%2?.4:-.4);instrument(chord[arpeggio]+24,.38,.025,'sine',.007,.006);}
-   // A melody enters after the opening, then leaves space for the environment.
-   if(section===1||section===2||danger){if(b%2===0){const note=SCORE[(Math.floor(b/2)+section*8)%32];instrument(note+12,step*2.5,.13,'sine',.015,.1,-.15);instrument(note+24,step*1.8,.018,'sine',.03,.12,.15);}}
-   if(b%4===0&&(section!==0||danger||biome==='fire')){this.tone(90,30,.45,'sine',this.music,.3,time);this.tone(165,80,.15,'triangle',this.music,.035,time+.007);}
-   if(danger&&b%4===2)this.tone(150,65,.18,'triangle',this.music,.12,time);
-   this.beat++;this.next+=step;
+  if(!this.settings.music||!this.musicReady){this.next=this.context.currentTime;this.pending=[];return;}
+  const danger=g.enemies.some(e=>e.type==='boss'&&!e.dead&&Math.hypot(e.x-g.player.x,e.y-g.player.y)<17),biome=biomeAt(g.player.x,g.player.y),c=this.context;
+  for(const retired of this.retiredTracks)if(c.currentTime>retired.until)retired.bus.disconnect();this.retiredTracks=this.retiredTracks.filter(t=>c.currentTime<=t.until);
+  if(biome!==this.musicRegion){
+   if(this.track){this.track.gain.setTargetAtTime(0,c.currentTime,.18);this.retiredTracks.push({bus:this.track,until:c.currentTime+10});}
+   this.track=c.createGain();this.track.gain.setValueAtTime(.0001,c.currentTime);this.track.gain.setTargetAtTime(1,c.currentTime,.4);this.track.connect(this.music);
+   this.musicRegion=biome;this.bar=0;this.pending=[];this.next=c.currentTime+.08;
   }
+  if(this.next<c.currentTime-.5){this.pending=[];this.next=c.currentTime+.05;}
+  if(this.next<c.currentTime+.2){
+   const score=composeBar(biome,this.bar++,danger),start=this.next;
+   this.pending.push(...score.events.map(event=>({...event,when:start+event.at*score.secondsPerBeat,duration:event.duration*score.secondsPerBeat})));
+   this.pending.sort((a,b)=>a.when-b.when);this.next+=score.secondsPerBeat*4;
+  }
+  while(this.pending.length&&this.pending[0].when<c.currentTime+.2){const event=this.pending.shift();this.instrument(event);}
+
  }
 }

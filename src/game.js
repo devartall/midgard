@@ -352,9 +352,9 @@ export function removePart(g,id) {
   const p=g.parts.find(p=>p.id===id);
   if(!p||distance(g.player,p)>7||blocked(g,p))return false;
   g.parts=g.parts.filter(a=>a.id!==id);
-  for(const [k,v]of Object.entries(PARTS[p.type].cost))add(g.player.inv,k,Math.floor(v/2));
+  for(const [k,v]of Object.entries(PARTS[p.type].cost))add(g.player.inv,k,v);
   sound(g,'wood');
-  tell(g,'Разобрано. Возвращена половина материалов.');
+  tell(g,'Разобрано. Возвращены все материалы.');
   return true;
 }
 export function station(g,type) {

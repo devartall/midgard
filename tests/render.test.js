@@ -143,3 +143,9 @@ test('ordinary landscape renders without hex overlays; building mode retains its
  r.draw(g,'floor',{x:400,y:200});assert.ok(hexes>0);
  for(const p of [{x:31,y:43},{x:32,y:44},{x:33,y:45},{x:34,y:46},{x:116,y:49},{x:142,y:112}])r.mountain(p,g);
 });
+
+test('zoom enlarges both ground and local artwork while keeping pointer picking aligned',()=>{
+ const r=new Renderer(canvasMock()),anchor={...G.START},point={x:G.START.x+1,y:G.START.y};assert.equal(r.zoom,1.4);
+ const screen=r.screen(point.x,point.y),back=r.world(screen.x,screen.y);assert.ok(G.distance(back,point)<1e-8);
+ r.detail(anchor,view=>{const q=r.screen(anchor.x,anchor.y),local=view.screen(point.x,point.y,12),actual=r.screen(point.x,point.y,12*r.zoom);assert.ok(Math.abs(q.x+(local.x-q.x)*r.zoom-actual.x)<1e-8);assert.ok(Math.abs(q.y+(local.y-q.y)*r.zoom-actual.y)<1e-8);assert.equal(view.scale*r.zoom,r.scale);});
+});

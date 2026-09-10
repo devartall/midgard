@@ -41,12 +41,12 @@ export function drawAnimal(r,a,g,pose){
   for(const side of [-1,1])stroke(c,[[side*3,deer?-44:-20],[side*7,deer?-55:-30],[side*10,deer?-51:-25]],'#cbbb99',2);
  }else if(deer){
   for(let i=0;i<4;i++){const x=-12+i*8,step=pose.step*(i%2?5:-5);stroke(c,[[x,-16],[x+step,-7],[x+step*1.4,1]],i%2?'#9b7854':'#5f5040',3);}
-  oval(c,0,-20,19,10,'#997954');oval(c,4,-17,10,5,'#bda37a');
+  oval(c,0,-20,19,10,'#997954');oval(c,4,-17,10,5,'#bda37a');for(let i=0;i<6;i++)stroke(c,[[-10+i*4,-24],[-8+i*4,-20]],'#d9bf8f77',.7);
   stroke(c,[[12,-21],[17,-33]],'#a08059',9);oval(c,21,-35,8,5,'#ba9970');oval(c,25,-37,1,1,'#192b25');
   stroke(c,[[17,-39],[14,-50],[10,-54],[14,-48],[20,-51]],'#d0bd90',2);stroke(c,[[21,-40],[24,-49],[28,-52]],'#c6b082',2);
   stroke(c,[[-17,-23],[-23,-27]],'#ccbc93',4);
  }else{
-  oval(c,0,-7,10,6,'#ab9b80');oval(c,8,-12,5,4,'#bdad90');
+  oval(c,0,-7,10,6,'#ab9b80');oval(c,8,-12,5,4,'#bdad90');stroke(c,[[-6,-10],[-3,-8],[0,-11],[3,-8]],'#dacbb066',.8);
   stroke(c,[[7,-15],[5,-25],[9,-18],[12,-26]],'#c8b99f',3);oval(c,10,-13,1,1,'#172622');
   oval(c,-10,-8,3,3,'#ded6be');stroke(c,[[-5,-3],[-9+pose.step*4,1],[4,-2],[9-pose.step*4,0]],'#c5b498',2);
  }
@@ -68,7 +68,7 @@ export function drawDetailedResource(r,o,g){
   const sway=Math.sin(g.time*1.6+o.x)*1.7;
   for(let i=0;i<7;i++){
    const x=(i-3)*5+sway,y=-5-Math.sin(i*.65)*9;stroke(c,[[0,2],[x,y]],'#665f3d',2);
-   oval(c,x,y,7,4,i%2?'#597b4e':'#77945b');oval(c,x-2,y-1,3,1.4,'#a3b67655');
+   oval(c,x,y,7,4,i%2?'#597b4e':'#77945b');oval(c,x-2,y-1,3,1.4,'#a3b67655');stroke(c,[[x-4,y+1],[x+3,y-1]],'#c4d39a66',.6);
    if(i%2)for(let j=0;j<3;j++){oval(c,x+j*2-2,y+1,2,2,'#9b454a');oval(c,x+j*2-2.5,y,.7,.7,'#efb9a1');}
   }
  }
