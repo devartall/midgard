@@ -1,3 +1,4 @@
+import {ServerDiagnostics} from './diagnostics.mjs';
 import {Rooms,roomRequest} from './rooms.mjs';
 import {createServer} from 'node:http';
 import {readFile,stat} from 'node:fs/promises';
@@ -5,6 +6,7 @@ import {resolve,extname,sep} from 'node:path';
 
 const rooms=new Rooms(),dataDir=process.env.DATA_DIR||'.midgard-data';
 await rooms.load(dataDir);
+if(process.env.ONLINE_DIAGNOSTICS!=='0')rooms.diagnostics=new ServerDiagnostics();
 // Fail startup if the persistent directory is not writable, rather than silently
 // accepting players whose progress cannot be saved.
 await rooms.save(dataDir);
@@ -33,7 +35,7 @@ const server=createServer(async(req,res)=>{
 });
 server.listen(port,'0.0.0.0',()=>console.log(`Midgard: http://localhost:${server.address().port}`));
 async function shutdown(){
- if(stopping)return;stopping=true;clearInterval(simulation);clearInterval(autosave);
+ if(stopping)return;stopping=true;rooms.diagnostics?.close();clearInterval(simulation);clearInterval(autosave);
  const forceClose=setTimeout(()=>server.closeAllConnections(),5000);forceClose.unref();
  try{
   await new Promise(resolve=>server.close(resolve));clearTimeout(forceClose);

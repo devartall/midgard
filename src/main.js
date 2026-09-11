@@ -10,7 +10,8 @@ import { hexRound, fromPlane, wallDistance } from './hex.js';
 import { bindPointer, installGestureGuard } from './input.js';
 import * as Sim from './game.js';
 const G={...Sim};
-let online=null,networkBusy=false;
+let online=null,networkBusy=false,diagnosticsAt=0;
+let diagnosticsEnabled=new URLSearchParams(globalThis.location?.search||'').get('diagnostics')==='1';
 for(const name of ['attack','interact','craft','useItem','eat','assignQuickSlot','useQuickSlot','claimHome','build','buildBatch','repair','removePart','respawn','storeItems','transferSkill'])G[name]=(...args)=>online?online.send(name,args.slice(1)):Sim[name](...args);
 import {
   Renderer
@@ -157,7 +158,7 @@ function renderPanel(){
     html=title(panelName==='online'?'Вместе в Мидгарде':'Ваш странник')+profileForm()+ (panelName==='online'?`<p>Приватная комната до 4 игроков. Мир не останавливается, пока вы в меню. Один общий дом, отдельные вещи. PvP выключен по умолчанию.</p><label>Код комнаты <input id="roomCode" maxlength="10" autocomplete="off"></label><div class="row">${button('Создать комнату','room-create','primary')}${button('Войти по коду','room-join')}${button('Соло','intro')}</div><p id="roomError" role="status"></p>`:button('Начать путь','character-start','primary'));
   }
   else if(panelName==='pause'){
-    html=title('У огня времени')+`<p>${online?'Сетевой мир продолжает жить. Меню не защищает героя от опасности.':'Игра на паузе. День, голод и нападения остановлены.'}</p><div class="audio-settings">${button('Музыка: '+(audio.settings.music?'вкл':'выкл'),'audio:music','secondary')}${button('Звуки: '+(audio.settings.effects?'вкл':'выкл'),'audio:effects','secondary')}</div><div class="audio-volumes">${['music','effects'].map(channel=>`<label>${channel==='music'?'Музыка':'Эффекты'}<input type="range" min="0" max="100" step="1" data-volume="${channel}" value="${Math.round(audio.settings[channel+'Volume']*100)}" aria-label="Громкость ${channel==='music'?'музыки':'эффектов'}"><output id="volume-${channel}">${Math.round(audio.settings[channel+'Volume']*100)}%</output></label>`).join('')}</div><div class="row">${online?button(game.player.pvp?'PvP включён — выключить':'Включить PvP','pvp')+button('Выйти из комнаты','leave-online')+`<p>Комната: <b>${online.code}</b>. Мир продолжает жить.</p>`:''}${button('Продолжить','close','primary')}${button('Сохранить','save','secondary')}${button('Копия сохранения','export','secondary')}${button('Управление','help','secondary')}</div><hr><label ${online?'hidden':''}>Восстановить из файла <input id="importFile" type="file" accept="application/json,.json"></label><p class="muted">Импорт заменит текущий мир только после подтверждения. Локальное сохранение принадлежит этому браузеру; очистка его данных удаляет прогресс.</p><hr>${button('Начать новый путь','new-confirm','danger secondary')}${saveError?`<p class="notice">${escape(saveError)}</p>`:''}`;
+    html=title('У огня времени')+`<p>${online?'Сетевой мир продолжает жить. Меню не защищает героя от опасности.':'Игра на паузе. День, голод и нападения остановлены.'}</p><div class="audio-settings">${button('Музыка: '+(audio.settings.music?'вкл':'выкл'),'audio:music','secondary')}${button('Звуки: '+(audio.settings.effects?'вкл':'выкл'),'audio:effects','secondary')}</div><div class="audio-volumes">${['music','effects'].map(channel=>`<label>${channel==='music'?'Музыка':'Эффекты'}<input type="range" min="0" max="100" step="1" data-volume="${channel}" value="${Math.round(audio.settings[channel+'Volume']*100)}" aria-label="Громкость ${channel==='music'?'музыки':'эффектов'}"><output id="volume-${channel}">${Math.round(audio.settings[channel+'Volume']*100)}%</output></label>`).join('')}</div><div class="row">${online?button(diagnosticsEnabled?'Скрыть диагностику':'Диагностика сети','diagnostics')+button(game.player.pvp?'PvP включён — выключить':'Включить PvP','pvp')+button('Выйти из комнаты','leave-online')+`<p>Комната: <b>${online.code}</b>. Мир продолжает жить.</p>`:''}${button('Продолжить','close','primary')}${button('Сохранить','save','secondary')}${button('Копия сохранения','export','secondary')}${button('Управление','help','secondary')}</div><hr><label ${online?'hidden':''}>Восстановить из файла <input id="importFile" type="file" accept="application/json,.json"></label><p class="muted">Импорт заменит текущий мир только после подтверждения. Локальное сохранение принадлежит этому браузеру; очистка его данных удаляет прогресс.</p><hr>${button('Начать новый путь','new-confirm','danger secondary')}${saveError?`<p class="notice">${escape(saveError)}</p>`:''}`;
   }
   else if(panelName==='help'){
     html=title('Как играть')+`<div class="keyhelp"><span>Левый круг / WASD — движение</span><span>Удар / Пробел — атака ближайшей цели</span><span>Блок / удержание Q — защита</span><span>Действие / E — собрать, открыть, прочитать</span><span>Карта / M · Пауза / Esc</span><span>1–9 — предметы на поясе</span></div><hr><p>Соберите дерево и камень вокруг тропы. В меню строительства отметьте участок и поставьте пол. Затем разместите стены по краям, дверь и очаг. Для пола зажмите и протяните область. Для стен протяните область полов — получите замкнутый контур. Одиночное касание ставит стену на ближайшее ребро; R переключает автоматический выбор и шесть направлений. Оставьте проход дверью: разберите один сегмент стены и поставьте дверь. Двигаться при этом можно левым кругом.</p><p>У верстака создайте меч, лук, стрелы, броню и щит. Броню и щит можно надеть или снять в сумке. Без щита блок руками слабее; лук занимает обе руки. Еду можно съесть в сумке. У очага в закрытом доме здоровье восстанавливается, если вы сыты и рядом нет монстров. Короткая вспышка перед атакой противника — время решить, блокировать ли или отступить.</p><p>Нападение начнётся после предупреждения. Закрытая дверь удерживает обычных врагов; развитый дом привлекает разрушителей. Кнопка действия работает с ближайшим объектом — подойдите непосредственно к нужному.</p><div class="row">${button(started?'Вернуться в игру':'К началу',started?'close':'intro','primary')}</div>`;
@@ -198,7 +199,7 @@ function previewProfile(){if(!$('heroPreview')||!['character','online'].includes
 async function connectRoom(create){if(networkBusy)return;networkBusy=true;try{const code=$('roomCode')?.value.trim().toUpperCase(),profile=readProfile();let stored;try{stored=JSON.parse(localStorage.getItem('midgard-room-'+code));}catch{}
  const session=await OnlineSession.request(create?'create':'join',{code,profile,token:stored?.token});
  const connection=new OnlineSession(session,state=>{if(online!==connection)return;const pvp=game.player.pvp;mergeSnapshot(game,state);pauseState();if(panelName==='pause'&&pvp!==game.player.pvp)renderPanel();},result=>{if(online!==connection)return;if(result.value==='craft'||result.value==='storage')openPanel(result.value);if(result.value?.note)openPanel('journal');if(panelName&&['bag','craft','storage'].includes(panelName))refreshPanel();if(result.error)G.tell(game,result.error);});
- online=connection;
+ online=connection;online.diagnostics.setEnabled(diagnosticsEnabled);$('onlineDiagnostics').open=diagnosticsEnabled;
  try{localStorage.setItem('midgard-room-'+session.code,JSON.stringify({token:session.token}));}catch{}
  game=session.state;lastEvent=0;barSignature='';start();
  }catch(e){if($('roomError'))$('roomError').textContent=e.message;}finally{networkBusy=false;}}
@@ -222,6 +223,7 @@ $('panel').addEventListener('click',event=>{
   audio.play('ui');
   if(act==='character-start'){game.player.appearance=readProfile().appearance;game.player.name=readProfile().name;start();return;}
   if(act==='room-create'||act==='room-join'){connectRoom(act==='room-create');return;}
+  if(act==='diagnostics'){diagnosticsEnabled=!diagnosticsEnabled;online?.diagnostics.setEnabled(diagnosticsEnabled);$('onlineDiagnostics').open=diagnosticsEnabled;refreshPanel();return;}
   if(act==='pvp'){online?.send('pvp',[!game.player.pvp]);return;}
   if(act==='leave-online'){online=null;started=false;game=G.createGame();try{const raw=localStorage.getItem(SAVE_KEY);if(raw)game=G.loadGame(raw);}catch{}openPanel('intro');return;}
   if(act==='audio'){audio.set(arg,!audio.settings[arg]);try{localStorage.setItem('midgard-audio',JSON.stringify(audio.settings));}catch{}refreshPanel();return;}
@@ -456,6 +458,7 @@ window.addEventListener('blur',()=>{
   }
 });
 document.addEventListener('visibilitychange',()=>{
+  online?.diagnostics.reset();
   clearInput();
   if(document.hidden&&started){safeSave();audio.update(game,false);}
   pauseState();
@@ -540,7 +543,12 @@ function frame(now){
     openPanel('death');
   }
   const preview=buildType&&buildType!=='remove'&&(buildDrag||pointer)?placementPlan(game,buildType,buildDrag?.start||renderer.world(pointer.x,pointer.y),buildDrag?.end||renderer.world(pointer.x,pointer.y),buildEdge):null;
+  const diagnostic=online?.diagnostics;
+  diagnostic?.frame(now,game.player);
+  const drawStart=diagnostic?.enabled?performance.now():0;
   renderer.draw(game,buildType,pointer,buildEdge,preview);
+  if(diagnostic?.enabled)diagnostic.drawn(performance.now()-drawStart);
+  if(now-diagnosticsAt>500){diagnosticsAt=now;$('onlineDiagnostics').hidden=!diagnostic?.enabled;if(diagnostic?.enabled)$('diagnosticsReadout').textContent=diagnostic.report(now);}
   if(now-lastHud>100){
     hud();
     lastHud=now;

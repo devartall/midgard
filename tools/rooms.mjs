@@ -36,9 +36,10 @@ export class Rooms{
   const previous=room.game.player;room.game.player=member.player;room.game.paused=false;const results=[];
   try{for(const action of (Array.isArray(payload.actions)?payload.actions:[]).slice(0,12)){if(!Number.isInteger(action.seq)||action.seq<=member.seq)continue;member.seq=action.seq;try{results.push({seq:action.seq,value:this.command(room.game,action.name,action.args)});}catch{results.push({seq:action.seq,error:'Действие отклонено'});}}}finally{room.game.player=previous;}
   this.distributeSounds(room);
+  this.diagnostics?.snapshot(member);
   return {state:this.snapshot(room,member),results,seq:member.seq};
  }
- tick(dt,now=Date.now()){for(const room of this.rooms.values()){const members=[...room.members.values()].filter(m=>now-m.seen<30000);if(!members.length)continue;const g=room.game;g.players=members.map(m=>m.player);g.player=g.players[0];const inputs={};for(const m of members)inputs[m.player.id]=now-m.seen<800?m.input:{};G.tickPlayers(g,dt,inputs);this.distributeSounds(room);if(g.events.length>30)g.events.splice(0,g.events.length-30);}}
+ tick(dt,now=Date.now()){for(const room of this.rooms.values()){const members=[...room.members.values()].filter(m=>now-m.seen<30000);if(!members.length)continue;const g=room.game;g.players=members.map(m=>m.player);g.player=g.players[0];const inputs={};for(const m of members)inputs[m.player.id]=now-m.seen<800?m.input:{};const tickStart=performance.now();G.tickPlayers(g,dt,inputs);this.diagnostics?.tick(room,performance.now()-tickStart);this.distributeSounds(room);if(g.events.length>30)g.events.splice(0,g.events.length-30);}}
  distributeSounds(room){for(const m of room.members.values())m.sounds=[...(m.sounds||[]),...room.game.sounds].slice(-60);room.game.sounds=[];}
  snapshot(room,member){const g=room.game,p=member.player;const sounds=member.sounds||[];member.sounds=[];return {...g,sounds,player:p,players:undefined,peers:[...room.members.values()].filter(m=>m!==member&&Date.now()-m.seen<30000).map(m=>m.player),resources:g.resources.filter(r=>G.distance(p,r)<32),online:{code:room.id,count:room.members.size},paused:false};}
  async save(dir){await mkdir(dir,{recursive:true});const value=[...this.rooms.values()].map(r=>({id:r.id,game:{...r.game,players:undefined},members:[...r.members]}));await writeFile(dir+'/rooms.tmp',JSON.stringify(value));await rename(dir+'/rooms.tmp',dir+'/rooms.json');}
@@ -56,6 +57,9 @@ export async function roomRequest(rooms,req,res){
   if(pathname==='/api/create')result=rooms.create(p.profile);
   else if(pathname==='/api/join')result=rooms.join(p.code,p.profile,p.token);
   else if(pathname==='/api/poll')result=rooms.poll(p.code,p.token,p);
-  else throw Error('Неизвестный запрос');res.end(JSON.stringify(result));
+  else throw Error('Неизвестный запрос');
+  const serializeStart=performance.now(),serialized=JSON.stringify(result),serializeMs=performance.now()-serializeStart;
+  if(pathname==='/api/poll'&&req.headers['x-midgard-diagnostics']==='1'&&rooms.diagnostics){const {room,member}=rooms.member(p.code,p.token);res.setHeader('X-Midgard-Diagnostics',JSON.stringify({...rooms.diagnostics.read(room,member),serializeMs}));}
+  res.end(serialized);
  }catch(e){res.statusCode=400;res.end(JSON.stringify({error:e.message}));}return true;
 }
