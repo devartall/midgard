@@ -159,3 +159,31 @@ input[type="text"],input:not([type]),textarea,#diagnosticsReadout{user-select:te
 .map-controls button,.map-players button{padding:6px 10px;min-height:32px;font-size:12px}
 .map-canvas{max-height:none;object-fit:fill;border-radius:6px}
 #hud .block,#hud .attack{width:min(58px,calc(var(--hud-dock) - 52px));height:min(58px,calc(var(--hud-dock) - 52px));justify-self:end}
+
+/* Equal combat targets in a compact triangle; thumb menus keep real tap area. */
+#hud .combat{grid-template-rows:54px 54px;grid-template-columns:1fr 1fr;gap:5px;align-self:end;height:113px;align-items:center}
+#hud .combat .action{width:54px;height:54px;max-height:none;aspect-ratio:1;border-radius:50%;padding:0;flex-direction:column;gap:1px;justify-self:center;align-self:center}
+#hud .combat .interact{grid-column:1 / -1}
+#hud .combat .action .icon{width:23px;height:23px}
+#hud .combat .action small{font-size:8px;line-height:1.1}
+#hud .hud-movement{position:relative;align-items:end;justify-items:start}
+#hud #joystick{width:88px;height:88px}
+#autoRun{position:absolute;right:0;top:0;width:40px;height:40px;border-radius:50%;padding:0;display:grid;place-items:center;font-size:20px;pointer-events:auto}
+#autoRun[aria-pressed="true"]{background:#a98742;color:#fff8d8;border-color:#f3d388}
+#hud .bottom-nav{max-width:300px}
+#hud .bottom-nav button{min-height:44px}
+#hud .bottom-nav .icon{width:19px;height:19px}
+#hud .bottom-nav span{font-size:8px}
+.character-editor{display:grid;grid-template-columns:minmax(0,1fr) minmax(130px,.55fr);gap:20px;align-items:start;margin-bottom:14px}
+.character-fields{min-width:0}.character-fields>label{display:grid;gap:5px}
+.character-fields .profile-options{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.character-preview{position:sticky;top:50px;display:grid;place-items:center;min-height:180px;background:radial-gradient(ellipse,#9bba8426,transparent 70%)}
+.character-preview svg{width:min(220px,100%);height:auto;max-height:250px}
+.panel .row{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.panel .row>button{flex:1 1 130px;min-height:44px;padding:10px 12px;line-height:1.2;white-space:normal}
+.character-fields button,.character-fields input,.character-fields select,#roomCode{min-height:44px;font-size:16px;box-sizing:border-box}
+.character-fields button{width:100%;margin-top:10px;padding:8px}
+@media(max-width:600px){.character-editor{grid-template-columns:minmax(0,1fr) 120px;gap:10px}.character-fields .profile-options{gap:6px}.character-fields select{font-size:14px}.character-preview{min-height:150px}}
+.character-fields input,.room-code-field input{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:#10251e;color:var(--cream)}
+.room-code-field{display:grid;gap:6px;max-width:300px;margin:12px 0}
+.character-fields select{min-width:0;width:100%;font-size:16px!important}

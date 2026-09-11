@@ -538,13 +538,13 @@ export function storeItems(g,withdraw=false) {
   return true;
 }
 export function attack(g) {
-  const p=g.player,weapon=weaponOwned(p)?p.weapon:'hands',cost=weapon==='bow'?12:15;
+  const p=g.player,weapon=weaponOwned(p)?p.weapon:'hands',cost=weapon==='bow'?24:weapon==='hands'?20:28;
   if(p.dead||p.harvest||p.attack>0||p.stamina<cost)return false;
   if(weapon==='bow'&&!p.inv.arrow)return tell(g,'Нет стрел. Создайте их у верстака.'),false;
   const range=weapon==='bow'?9:MELEE[weapon].reach+.16;
   const target=[...g.enemies,...g.animals,...pvpTargets(g)].filter(e=>!e.dead&&distance(e,p)<=range+(e.type==='boss'?.85:0)&&lineClear(g,p,e)).sort((a,b)=>distance(a,p)-distance(b,p))[0];
   if(target&&distance(p,target)>.001)p.facing={x:(target.x-p.x)/distance(p,target),y:(target.y-p.y)/distance(p,target)};
-  p.stamina-=cost;sound(g,weapon==='bow'?'bow':'swing');
+  p.stamina-=cost;p.staminaDelay=.65;p.sprinting=false;sound(g,weapon==='bow'?'bow':'swing');
   if(weapon==='bow') {
     p.attack=.65;p.strikeAt=g.time;add(p.inv,'arrow',-1);
     if(target) {hurtEnemy(g,target,19*(1+p.skills.bow*.016));gainSkill(g,'bow',1.6);g.effects.push({x:p.x,y:p.y,to:{x:target.x,y:target.y},life:.25,color:'#ead39b'});}
@@ -597,6 +597,7 @@ export function damagePlayer(g,n,enemy=null) {
   const p=g.player;
   if(p.dead)return;
   const defended=enemy&&p.blocking&&p.stamina>=10;
+  if(enemy){p.staminaDelay=Math.max(p.staminaDelay||0,.4);if(!defended)p.stamina=Math.max(0,p.stamina-Math.max(Math.min(8,n),n*.45));}
   if(enemy)sound(g,defended&&usingShield(p)?'block':'hurt');
   if(defended){
     const shield=usingShield(p);p.stamina=Math.max(0,p.stamina-(shield?Math.max(5,10-p.skills.guard*.05):15));
@@ -639,7 +640,7 @@ export function respawn(g,home=false) {
   const bed=g.parts.find(p=>p.type==='bed'&&p.hp>0);
   const pos=home&&bed?bed:START;
   Object.assign(g.player,{
-    x:pos.x,y:pos.y,hp:100,stamina:100,food:300,buff:0,foodBonus:0,dead:false,attack:0,harvest:null
+    x:pos.x,y:pos.y,hp:100,stamina:100,staminaDelay:0,sprinting:false,sprintExhausted:false,food:300,buff:0,foodBonus:0,dead:false,attack:0,harvest:null
   });
   sound(g,'respawn');
   tell(g,home&&bed?'Вы вернулись домой.':'Вы вернулись к первому камню.');
@@ -840,14 +841,20 @@ function tickPlayer(g,dt,input){
   p.slow=Math.max(0,(p.slow||0)-dt);p.magicCooldown=Math.max(0,(p.magicCooldown||0)-dt);p.burning=Math.max(0,(p.burning||0)-dt);if(p.burning>0)damagePlayer(g,dt*(p.inv.fireCloak?1:7));if(p.dead)return;
   for(const k of ['attack','hurt','buff','food','potionCooldown'])p[k]=Math.max(0,p[k]-dt);
   p.blocking=!!input.block;
-  p.stamina=Math.min(100,p.stamina+dt*(p.blocking?5:SCENERY.some(s=>s.type==='spring'&&distance(s,p)<1.8)?35:20));
+  p.staminaDelay=Math.max(0,(p.staminaDelay||0)-dt);
+  if(p.stamina<=0)p.sprintExhausted=true;
+  if(p.stamina>=25)p.sprintExhausted=false;
+  const moving=metric({x:input.x||0,y:input.y||0},{x:0,y:0})>.1;
+  p.sprinting=input.sprint===true&&moving&&!p.blocking&&p.attack<=0&&!p.harvest&&!p.sprintExhausted&&p.stamina>0;
+  if(p.sprinting){p.stamina=Math.max(0,p.stamina-dt*24);if(p.stamina===0){p.sprinting=false;p.sprintExhausted=true;}}
+  else if(p.attack<=0&&p.staminaDelay===0)p.stamina=Math.min(100,p.stamina+dt*(SCENERY.some(s=>s.type==='spring'&&distance(s,p)<1.8)?12:p.blocking?8:6));
   p.hp=Math.min(p.hp,maxHp(g));
   if(p.food<=0)damagePlayer(g,dt*.7);
   if(p.dead)return;
   p.hp=Math.min(maxHp(g),p.hp+regeneration(p)*dt);
   const len=metric({x:input.x||0,y:input.y||0},{x:0,y:0});
   if(len>0){
-    const speed=(p.blocking?1.4:3.2)*(p.slow>0?.55:1)*dt;
+    const speed=(p.blocking?1.4:p.sprinting?5.2:3.2)*(p.slow>0?.55:1)*dt;
     move(g,p,input.x/Math.max(1,len)*speed,input.y/Math.max(1,len)*speed);
     p.facing={
       x:input.x/len,y:input.y/len

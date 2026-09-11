@@ -22,7 +22,7 @@ const SAVE_KEY='forest-hearth-v1';
 let audioSettings={music:true,effects:true};try{const stored=JSON.parse(localStorage.getItem('midgard-audio'));if(stored&&typeof stored.music==='boolean'&&typeof stored.effects==='boolean')audioSettings=stored;}catch{}
 const audio=new GameAudio(audioSettings);let lastStep=0;
 let helpMode=false;
-let game=G.createGame(),started=false,panelName=null,buildType=null,buildEdge=null,buildDrag=null,selectedItem=null,barSignature='',pointer=null,joy=null,lastFrame=0,lastHud=0,saveClock=0,lastEvent=0,toastUntil=0,saveError='',knownSave=false;
+let game=G.createGame(),started=false,panelName=null,buildType=null,buildEdge=null,buildDrag=null,selectedItem=null,barSignature='',pointer=null,joy=null,autoRun=false,runHeading={x:0,y:1},lastFrame=0,lastHud=0,saveClock=0,lastEvent=0,toastUntil=0,saveError='',knownSave=false;
 const input={
   x:0,y:0,block:false
 },keys=new Set();
@@ -94,6 +94,7 @@ function title(text){
 const pointerBindings=[];
 installGestureGuard([canvas, $('hud')]);
 function clearInput(){
+  autoRun=false;input.sprint=false;
   for (const control of pointerBindings) control.reset();
   keys.clear();
   input.x=0;
@@ -155,13 +156,13 @@ function renderPanel(){
     html=`<div class="eyebrow">ПУТЬ НЕ ЗАКОНЧЕН</div><h2 id="panelTitle">Лес забрал своё</h2><p>Ваши вещи остались на месте гибели. Навыки и запасы дома сохранены. Хранитель восстановил здоровье.</p><div class="row">${button('Возродиться на старте','respawn:start','primary')}${game.parts.some(v=>v.type==='bed'&&v.hp>0)?button('Возродиться дома','respawn:home','secondary'):''}</div><p class="muted">Дом может быть занят монстрами. Выбор старта всегда доступен.</p>`;
   }
   else if(panelName==='character'||panelName==='online'){
-    html=title(panelName==='online'?'Вместе в Мидгарде':'Ваш странник')+profileForm()+ (panelName==='online'?`<p>Приватная комната до 4 игроков. Мир не останавливается, пока вы в меню. Один общий дом, отдельные вещи. PvP выключен по умолчанию.</p><label>Код комнаты <input id="roomCode" type="text" inputmode="numeric" placeholder="1234" maxlength="10" autocomplete="off" autocapitalize="off" spellcheck="false"></label><div class="row">${button('Создать комнату','room-create','primary')}${button('Войти по коду','room-join')}${button('Соло','intro')}</div><p id="roomError" role="status"></p>`:button('Начать путь','character-start','primary'));
+    html=title(panelName==='online'?'Вместе в Мидгарде':'Ваш странник')+profileForm()+ (panelName==='online'?`<p>Приватная комната до 4 игроков. Мир не останавливается, пока вы в меню. Один общий дом, отдельные вещи. PvP выключен по умолчанию.</p><label class="room-code-field">Код комнаты <input id="roomCode" type="text" inputmode="numeric" placeholder="1234" maxlength="10" autocomplete="off" autocapitalize="off" spellcheck="false"></label><div class="row">${button('Создать комнату','room-create','primary')}${button('Войти по коду','room-join')}${button('Соло','intro')}</div><p id="roomError" role="status"></p>`:button('Начать путь','character-start','primary'));
   }
   else if(panelName==='pause'){
     html=title('У огня времени')+`<p>${online?'Сетевой мир продолжает жить. Меню не защищает героя от опасности.':'Игра на паузе. День, голод и нападения остановлены.'}</p><div class="audio-settings">${button('Музыка: '+(audio.settings.music?'вкл':'выкл'),'audio:music','secondary')}${button('Звуки: '+(audio.settings.effects?'вкл':'выкл'),'audio:effects','secondary')}</div><div class="audio-volumes">${['music','effects'].map(channel=>`<label>${channel==='music'?'Музыка':'Эффекты'}<input type="range" min="0" max="100" step="1" data-volume="${channel}" value="${Math.round(audio.settings[channel+'Volume']*100)}" aria-label="Громкость ${channel==='music'?'музыки':'эффектов'}"><output id="volume-${channel}">${Math.round(audio.settings[channel+'Volume']*100)}%</output></label>`).join('')}</div><div class="row">${online?button(diagnosticsEnabled?'Скрыть диагностику':'Диагностика сети','diagnostics')+button(game.player.pvp?'PvP включён — выключить':'Включить PvP','pvp')+button('Выйти из комнаты','leave-online')+`<p>Комната: <b>${online.code}</b>. Мир продолжает жить.</p>`:''}${button('Продолжить','close','primary')}${button('Сохранить','save','secondary')}${button('Копия сохранения','export','secondary')}${button('Управление','help','secondary')}</div><hr><label ${online?'hidden':''}>Восстановить из файла <input id="importFile" type="file" accept="application/json,.json"></label><p class="muted">Импорт заменит текущий мир только после подтверждения. Локальное сохранение принадлежит этому браузеру; очистка его данных удаляет прогресс.</p><hr>${button('Начать новый путь','new-confirm','danger secondary')}${saveError?`<p class="notice">${escape(saveError)}</p>`:''}`;
   }
   else if(panelName==='help'){
-    html=title('Как играть')+`<div class="keyhelp"><span>Левый круг / WASD — движение</span><span>Удар / Пробел — атака ближайшей цели</span><span>Блок / удержание Q — защита</span><span>Действие / E — собрать, открыть, прочитать</span><span>Карта / M · Пауза / Esc</span><span>1–9 — предметы на поясе</span></div><hr><p>Соберите дерево и камень вокруг тропы. В меню строительства отметьте участок и поставьте пол. Затем разместите стены по краям, дверь и очаг. Для пола зажмите и протяните область. Для стен протяните область полов — получите замкнутый контур. Одиночное касание ставит стену на ближайшее ребро; R переключает автоматический выбор и шесть направлений. Оставьте проход дверью: разберите один сегмент стены и поставьте дверь. Двигаться при этом можно левым кругом.</p><p>У верстака создайте меч, лук, стрелы, броню и щит. Броню и щит можно надеть или снять в сумке. Без щита блок руками слабее; лук занимает обе руки. Еду можно съесть в сумке. У очага в закрытом доме здоровье восстанавливается, если вы сыты и рядом нет монстров. Короткая вспышка перед атакой противника — время решить, блокировать ли или отступить.</p><p>Нападение начнётся после предупреждения. Закрытая дверь удерживает обычных врагов; развитый дом привлекает разрушителей. Кнопка действия работает с ближайшим объектом — подойдите непосредственно к нужному.</p><div class="row">${button(started?'Вернуться в игру':'К началу',started?'close':'intro','primary')}</div>`;
+    html=title('Как играть')+`<div class="keyhelp"><span>Левый круг / WASD — движение; сильное отклонение / Shift — спринт. Кнопка ➤ рядом со стиком — автобег</span><span>Удар / Пробел — атака ближайшей цели</span><span>Блок / удержание Q — защита</span><span>Действие / E — собрать, открыть, прочитать</span><span>Карта / M · Пауза / Esc</span><span>1–9 — предметы на поясе</span></div><hr><p>Соберите дерево и камень вокруг тропы. В меню строительства отметьте участок и поставьте пол. Затем разместите стены по краям, дверь и очаг. Для пола зажмите и протяните область. Для стен протяните область полов — получите замкнутый контур. Одиночное касание ставит стену на ближайшее ребро; R переключает автоматический выбор и шесть направлений. Оставьте проход дверью: разберите один сегмент стены и поставьте дверь. Двигаться при этом можно левым кругом.</p><p>У верстака создайте меч, лук, стрелы, броню и щит. Броню и щит можно надеть или снять в сумке. Без щита блок руками слабее; лук занимает обе руки. Еду можно съесть в сумке. У очага в закрытом доме здоровье восстанавливается, если вы сыты и рядом нет монстров. Короткая вспышка перед атакой противника — время решить, блокировать ли или отступить.</p><p>Нападение начнётся после предупреждения. Закрытая дверь удерживает обычных врагов; развитый дом привлекает разрушителей. Кнопка действия работает с ближайшим объектом — подойдите непосредственно к нужному.</p><div class="row">${button(started?'Вернуться в игру':'К началу',started?'close':'intro','primary')}</div>`;
   }
   else if(panelName==='new-confirm'){
     html=title('Начать заново?')+`<p>Текущий мир будет заменён. Если он нужен, сначала сохраните копию через меню паузы.</p><div class="row">${button('Заменить мир','new','danger secondary')}${button('Отмена',started?'pause':'intro','primary')}</div>`;
@@ -195,7 +196,7 @@ function renderPanel(){
 
 let draftProfile=randomProfile(),mapZoom=1,mapFocus=null,mapRefreshAt=0;
 function drawMap(){const roster=[game.player,...(game.peers||[])].map(p=>button(escape(p.name||'Странник')+(p===game.player?' (вы)':''),'map-player:'+p.id)).join('');if($('mapPlayers').innerHTML!==roster)$('mapPlayers').innerHTML=roster;const focus=[game.player,...(game.peers||[])].find(p=>p.id===mapFocus)||game.player;renderer.map($('mapCanvas'),game,mapZoom,focus);$('mapScale').textContent=mapZoom.toFixed(1)+'×';}
-function profileForm(){const look=appearance(draftProfile.appearance),labels={sex:'Пол',skin:'Кожа',hair:'Цвет волос',cloth:'Рубаха',style:'Причёска',beard:'Борода'},names={male:'Мужской',female:'Женский',short:'Короткая',braid:'Коса',shaved:'Бритая',none:'Нет',long:'Длинная'};return '<label>Имя <input id="heroName" maxlength="20" value="'+escape(draftProfile.name)+'"></label><div class="profile-options">'+Object.entries(LOOKS).map(([key,choices])=>'<label>'+labels[key]+'<select id="look-'+key+'">'+choices.map((v,i)=>'<option value="'+v+'" '+(v===look[key]?'selected':'')+'>'+(names[v]||({skin:['Светлая','Смуглая','Тёмная'],hair:['Каштановые','Светлые','Чёрные','Седые'],cloth:['Льняная','Сине-зелёная','Терракотовая','Зелёная']}[key]?.[i]))+'</option>').join('')+'</select></label>').join('')+'</div>'+button('Случайный герой','random-profile','secondary')+'<div id="heroPreview"></div>';}
+function profileForm(){const look=appearance(draftProfile.appearance),labels={sex:'Пол',skin:'Кожа',hair:'Цвет волос',cloth:'Рубаха',style:'Причёска',beard:'Борода'},names={male:'Мужской',female:'Женский',short:'Короткая',braid:'Коса',shaved:'Бритая',none:'Нет',long:'Длинная'};return '<div class="character-editor"><div class="character-fields"><label>Имя <input id="heroName" maxlength="20" value="'+escape(draftProfile.name)+'"></label><div class="profile-options">'+Object.entries(LOOKS).map(([key,choices])=>'<label>'+labels[key]+'<select id="look-'+key+'">'+choices.map((v,i)=>'<option value="'+v+'" '+(v===look[key]?'selected':'')+'>'+(names[v]||({skin:['Светлая','Смуглая','Тёмная'],hair:['Каштановые','Светлые','Чёрные','Седые'],cloth:['Льняная','Сине-зелёная','Терракотовая','Зелёная']}[key]?.[i]))+'</option>').join('')+'</select></label>').join('')+'</div>'+button('Случайный герой','random-profile','secondary')+'</div><div id="heroPreview" class="character-preview"></div></div>';}
 function readProfile(){return draftProfile={name:characterName($('heroName')?.value),appearance:appearance(Object.fromEntries(Object.keys(LOOKS).map(k=>[k,$('look-'+k)?.value]))) };}
 function previewProfile(){if(!$('heroPreview')||!['character','online'].includes(panelName))return;const a=readProfile().appearance;$('heroPreview').innerHTML=`<svg viewBox="0 0 120 110" width="120" height="110" aria-label="Внешность героя"><path d="${a.sex==='female'?'M44 60h32l-3 16 11 18H36l11-18Z':'M40 60h40l4 34H36Z'}" fill="${a.cloth}"/><path d="M42 94v14m36-14v14" stroke="#4a493c" stroke-width="12"/><path d="M39 64 30 82m51-18 9 18" stroke="${a.cloth}" stroke-width="9"/><circle cx="60" cy="40" r="${a.sex==='female'?18:20}" fill="${a.skin}"/><path d="M40 34q1-27 39-5l2 8-21-8-20 12Z" fill="${a.style==='shaved'?a.skin:a.hair}"/>${a.style==='braid'?'<path d="M42 35 34 50 37 70" stroke="'+a.hair+'" stroke-width="7"/>':''}${a.beard!=='none'?'<path d="M48 49h25L60 '+(a.beard==='long'?74:62)+'Z" fill="'+a.hair+'"/>':''}<path d="M49 40h4m15 0h4" stroke="#283636" stroke-width="3"/></svg>`;}
 async function connectRoom(create){if(networkBusy)return;networkBusy=true;try{const code=$('roomCode')?.value.trim().toUpperCase(),profile=readProfile();let stored;try{stored=JSON.parse(localStorage.getItem('midgard-room-'+code));}catch{}
@@ -372,7 +373,7 @@ $('quickbar').addEventListener('pointerdown',event=>{
 for(const b of document.querySelectorAll('[data-panel]'))b.innerHTML=icon(b.dataset.panel==='build'?'wall':b.dataset.panel)+`<span>${({bag:'Сумка',build:'Строить',craft:'Ремесло',skills:'Навыки',journal:'Сага'})[b.dataset.panel]}</span>`;
 $('mapBtn').innerHTML=icon('map');
 $('attack').dataset.tooltip='Атака · Пробел. Мечом бейте на длине клинка; лук расходует стрелы.';
-$('block').dataset.tooltip='Удерживайте для блока · Q. Щит поглощает намного больше урона, чем руки; блок расходует энергию.';
+$('block').dataset.tooltip='Удерживайте для блока · Q. Щит поглощает намного больше урона, чем руки; попадания расходуют энергию, между ними блок позволяет восстанавливать её.';
 $('interact').dataset.tooltip='Действие · E. Сбор ресурсов, двери, сундуки и находки рядом с героем. Дерево и камень требуют нескольких ударов.';
 $('block').innerHTML=icon('hand')+'<small>Блок руками · Q</small>';
 
@@ -389,7 +390,8 @@ function bindAction(id, down, up = () => {}) {
     end: () => { element.classList.remove('pressed'); up(); },
   }));
 }
-bindAction('attack', () => G.attack(game));
+bindAction('attack', () => {autoRun=false;G.attack(game);});
+$('autoRun').addEventListener('click',()=>{if(canControl()){autoRun=!autoRun;$('autoRun').setAttribute?.('aria-pressed',String(autoRun));}});
 
 bindAction('interact',()=>{touchInteract=true;doInteract();},()=>{touchInteract=false;});
 bindAction('block', () => touchBlock = true, () => touchBlock = false);
@@ -539,7 +541,12 @@ function frame(now){
   const dt=lastFrame?Math.min(.1,(now-lastFrame)/1000):0;
   lastFrame=now;
   pauseState();
-  const sx=(joy?.x||0)+(keys.has('d')||keys.has('arrowright')?1:0)-(keys.has('a')||keys.has('arrowleft')?1:0),sy=(joy?.y||0)+(keys.has('s')||keys.has('arrowdown')?1:0)-(keys.has('w')||keys.has('arrowup')?1:0);
+  let sx=(joy?.x||0)+(keys.has('d')||keys.has('arrowright')?1:0)-(keys.has('a')||keys.has('arrowleft')?1:0),sy=(joy?.y||0)+(keys.has('s')||keys.has('arrowdown')?1:0)-(keys.has('w')||keys.has('arrowup')?1:0);
+  if(keys.has('q')||touchBlock||keys.has(' '))autoRun=false;
+  if(Math.hypot(sx,sy)>.1){const length=Math.hypot(sx,sy);runHeading={x:sx/length,y:sy/length};}
+  else if(autoRun){sx=runHeading.x;sy=runHeading.y;}
+  input.sprint=autoRun||!!(joy&&Math.hypot(joy.x,joy.y)>.82)||keys.has('shift');
+  $('autoRun').setAttribute?.('aria-pressed',String(autoRun));
   const move=fromPlane(sx+sy*2,-sx+sy*2);
   input.x=move.x;
   input.y=move.y;

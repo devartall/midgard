@@ -35,7 +35,7 @@ export class Rooms{
   throw Error('Команда недоступна');
  }
  poll(id,token,payload={}){const {room,member}=this.member(id,token),now=Date.now();if(member.lastPoll&&now-member.lastPoll<40)throw Error('Слишком частые запросы');member.lastPoll=now;member.seen=now;
-  const input=payload.input||{};member.input={x:Number.isFinite(input.x)?Math.max(-3,Math.min(3,input.x)):0,y:Number.isFinite(input.y)?Math.max(-3,Math.min(3,input.y)):0,block:input.block===true};
+  const input=payload.input||{};member.input={x:Number.isFinite(input.x)?Math.max(-3,Math.min(3,input.x)):0,y:Number.isFinite(input.y)?Math.max(-3,Math.min(3,input.y)):0,block:input.block===true,sprint:input.sprint===true};
   const previous=room.game.player;room.game.player=member.player;room.game.paused=false;const results=[];
   try{for(const action of (Array.isArray(payload.actions)?payload.actions:[]).slice(0,12)){if(!Number.isInteger(action.seq)||action.seq<=member.seq)continue;member.seq=action.seq;try{results.push({seq:action.seq,value:this.command(room.game,action.name,action.args)});}catch{results.push({seq:action.seq,error:'Действие отклонено'});}}}finally{room.game.player=previous;}
   this.distributeSounds(room);
