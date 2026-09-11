@@ -1,0 +1,24 @@
+# Render Blueprint: one persistent Node service serves both the game and rooms.
+# The starter service and persistent disk are paid Render resources.
+services:
+  - type: web
+    name: midgard
+    runtime: node
+    plan: starter
+    region: frankfurt
+    buildCommand: npm run build
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: SERVE_DIR
+        value: dist
+      - key: DATA_DIR
+        value: /var/data/midgard
+    disk:
+      name: midgard-rooms
+      mountPath: /var/data
+      sizeGB: 1

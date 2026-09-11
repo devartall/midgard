@@ -38,7 +38,7 @@ test('health potion recipe, capped healing, cooldown, pause, hotbar and save val
   assert.ok(G.assignQuickSlot(g,8,'potion'));assert.ok(G.useQuickSlot(g,8));assert.equal(g.player.hp,100);assert.equal(g.player.inv.potion,undefined);
   assert.ok(G.craft(g,'potion'));g.player.hp=20;assert.equal(G.useQuickSlot(g,8),false);assert.equal(g.player.inv.potion,1);
   g.paused=true;G.tick(g,.1);assert.equal(g.player.potionCooldown,20);g.paused=false;
-  for(let i=0;i<201;i++)G.tick(g,.1);assert.ok(G.useQuickSlot(g,8));assert.equal(g.player.hp,60);
+  for(let i=0;i<201;i++)G.tick(g,.1);const beforePotion=g.player.hp;assert.ok(beforePotion>20);assert.ok(G.useQuickSlot(g,8));assert.equal(g.player.hp,Math.min(G.maxHp(g),beforePotion+40));
   assert.ok(G.assignQuickSlot(g,0,'sword'));assert.ok(G.useQuickSlot(g,0));assert.equal(g.player.weapon,'sword');assert.equal(G.assignQuickSlot(g,0,'wood'),false);
   const loaded=G.loadGame(G.saveGame(g));assert.deepEqual(loaded.player.quickbar,g.player.quickbar);
   loaded.player.quickbar[2]='<script>';assert.throws(()=>G.loadGame(G.saveGame(loaded)));

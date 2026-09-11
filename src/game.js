@@ -106,9 +106,9 @@ export const FOODS = {
   berry:{
     sat:420,buff:0,hp:0
   }, roast:{
-    sat:1200,buff:600,hp:20
+    sat:1200,buff:600,hp:20,regen:.15
   }, stew:{
-    sat:2700,buff:900,hp:40
+    sat:2700,buff:900,hp:40,regen:.3
   }
 };
 export const GATHER={crystal:{hits:5,label:'Добывать',yield:3},obsidian:{hits:6,label:'Добывать',yield:3},wood:{hits:4,label:'Рубить',yield:4},stone:{hits:5,label:'Добывать',yield:3},berry:{hits:1,label:'Собрать',yield:3},herb:{hits:1,label:'Срезать',yield:3},mushroom:{hits:1,label:'Собрать',yield:3}};
@@ -234,6 +234,12 @@ function spend(inv,cost) {
 }
 export function isNight(g) {
   return g.time%DAY>=300;
+}
+export function regeneration(p){
+ if(p.dead)return 0;
+ const sat=Math.max(0,Math.min(1,(p.food||0)/FOODS.stew.sat));
+ const meal=p.buff>0?(p.foodBonus>=40?FOODS.stew.regen:p.foodBonus>=20?FOODS.roast.regen:0):0;
+ return .08+.72*sat+meal;
 }
 export function maxHp(g) {
   return 100+(g.player.buff>0?g.player.foodBonus:0);
@@ -804,6 +810,7 @@ export function statusEffects(g){
   const p=g.player,result=[],biome=biomeAt(p.x,p.y);
   if(biome!=='forest')result.push({id:biome,icon:biome==='snow'?'crystal':'flameHeart',name:biome==='snow'?(p.inv.furCloak?'Мех защищает от мороза':'Мороз: нужен меховой плащ'):(p.inv.fireCloak?'Плащ защищает от жара':'Жар: нужен огнестойкий плащ'),kind:(biome==='snow'?p.inv.furCloak:p.inv.fireCloak)?'buff':'debuff'});
   if(p.burning>0)result.push({id:'burn',icon:'flameHeart',name:'Горение',seconds:p.burning,kind:'debuff'});
+  if(!p.dead&&p.hp<maxHp(g))result.push({id:'regen',icon:'potion',name:`Регенерация: +${regeneration(p).toFixed(2)} HP/с. Сытость и блюда усиливают восстановление.`,kind:'buff'});
   if(p.buff>0)result.push({id:'fed',icon:'stew',name:`Пища: +${p.foodBonus} здоровья`,kind:'buff',seconds:p.buff});
   if(p.food<=0)result.push({id:'hunger',icon:'meat',name:'Голод: здоровье убывает',kind:'debuff'});
   if(p.stamina<20)result.push({id:'tired',icon:'energy',name:'Мало выносливости',kind:'debuff'});
@@ -837,6 +844,7 @@ function tickPlayer(g,dt,input){
   p.hp=Math.min(p.hp,maxHp(g));
   if(p.food<=0)damagePlayer(g,dt*.7);
   if(p.dead)return;
+  p.hp=Math.min(maxHp(g),p.hp+regeneration(p)*dt);
   const len=metric({x:input.x||0,y:input.y||0},{x:0,y:0});
   if(len>0){
     const speed=(p.blocking?1.4:3.2)*(p.slow>0?.55:1)*dt;

@@ -103,7 +103,7 @@ test('food separates buff from satiety; starvation can kill; pause freezes every
   assert.equal(G.saveGame(g),saved);
   g.paused=false;
   g.player.food=0;
-  advance(g,150);
+  advance(g,180);
   assert.ok(g.player.dead);
 });
 test('storage is preserved, blocked by proximity only and usable when guard leaves',()=>{

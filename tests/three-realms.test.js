@@ -14,7 +14,7 @@ test('all three arenas are reachable on foot, have different resources and remai
 test('climate warns before damage and appropriate crafted protection prevents damage',()=>{
  for(const [biome,item]of [['snow','furCloak'],['fire','fireCloak']]){
   const g=G.createGame(1);g.enemies=[];g.animals=[];Object.assign(g.player,G.BOSSES.find(b=>b.biome===biome));
-  run(g,5);assert.equal(g.player.hp,100);run(g,5);assert.ok(g.player.hp<100);g.player.inv[item]=1;const hp=g.player.hp;run(g,5);assert.equal(g.player.hp,hp);
+  run(g,5);assert.equal(g.player.hp,100);run(g,5);assert.ok(g.player.hp<100);g.player.inv[item]=1;const hp=g.player.hp;run(g,5);assert.ok(g.player.hp>=hp);
  }
 });
 test('rune opens magic after snow materials, has a cooldown and consumes energy, not the item',()=>{
