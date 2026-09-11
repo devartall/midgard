@@ -283,18 +283,36 @@ export class Renderer {
     c.save();c.translate(q.x,q.y);c.scale(zoom,zoom);c.translate(-q.x,-q.y);draw(view);c.restore();
   }
 
-  map(canvas,g){
-    const c=canvas.getContext('2d'),unit=1.12;canvas.width=280;canvas.height=220;
-    const project=p=>{const v=toPlane(p.x,p.y);return{x:140+(v.x-117)*unit,y:110+(v.y-65)*unit};};
-    c.fillStyle='#152c25';c.fillRect(0,0,280,220);
+  map(canvas,g,zoom=1,focus=g.player){
+    const width=Math.max(280,canvas.clientWidth||640),height=Math.max(160,Math.min(360,(globalThis.innerHeight||600)*.5)),dpr=Math.min(3,globalThis.devicePixelRatio||1);
+    const cacheKey=[width,height,dpr,zoom,zoom===1?0:focus.x,zoom===1?0:focus.y].join(':');
+    canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);canvas.style.height=height+'px';
+    const output=canvas.getContext('2d');output.setTransform(dpr,0,0,dpr,0,0);
+    const unit=Math.min(width/300,height/180)*zoom,center=zoom===1?{x:117,y:65}:toPlane(focus.x,focus.y);
+    if(!this.mapLayer&&globalThis.document?.createElement)this.mapLayer=document.createElement('canvas');
+    let c=output;
+    const redraw=!this.mapLayer||this.mapCacheKey!==cacheKey;
+    if(this.mapLayer){if(redraw){this.mapLayer.width=canvas.width;this.mapLayer.height=canvas.height;}c=this.mapLayer.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);}
+
+    const project=p=>{const v=toPlane(p.x,p.y);return{x:width/2+(v.x-center.x)*unit,y:height/2+(v.y-center.y)*unit};};
+    if(redraw){c.fillStyle='#152c25';c.fillRect(0,0,width,height);
     for(let x=0;x<SIZE;x++)for(let y=0;y<SIZE;y++){
       const vertices=corners(x,y);c.beginPath();vertices.forEach((v,i)=>{const q=project(v);if(i)c.lineTo(q.x,q.y);else c.moveTo(q.x,q.y);});c.closePath();
       const kind=terrain(x,y,g);c.fillStyle=kind==='water'?'#3e7181':kind==='snow'?'#c9dde7':kind==='ash'?'#6f5154':kind==='lava'?'#ff913c':kind==='mountain'?'#bac6ba':kind==='shore'?'#b2a77d':kind==='heath'?'#828165':isTrail(x,y)?'#8e8255':palette[Math.floor(hash(x,y)*6)];c.fill();
     }
+    }
+    this.mapCacheKey=cacheKey;if(this.mapLayer){output.drawImage(this.mapLayer,0,0,width,height);c=output;}
     const dot=(p,color,r)=>{const q=project(p);c.fillStyle=color;c.beginPath();c.arc(q.x,q.y,r,0,Math.PI*2);c.fill();};
     for(const camp of CAMPS){const q=project(camp);c.strokeStyle='#d3a165';c.beginPath();c.arc(q.x,q.y,6,0,Math.PI*2);c.stroke();}
     if(g.home)dot(g.home,'#e2ca84',5);for(const grave of g.graves)dot(grave,'#c397cb',3);
     for(const n of NOTES)dot(n,'#b6c1a1',2);
-    for(const b of BOSSES)dot(b,g.defeated?.includes(b.biome)?'#839573':'#ce8974',5);dot(START,'#b9b795',3);dot(g.player,'#f8edcb',4);
+    for(const b of BOSSES)dot(b,g.defeated?.includes(b.biome)?'#839573':'#ce8974',5);dot(START,'#b9b795',3);dot(g.player,'#f8edcb',5);
+    for(const [i,p]of [g.player,...(g.peers||[])].entries()){
+      const q=project(p),color=i===0?'#fff0b0':'#73e5ff';dot(p,color,5);
+      c.font='bold 12px system-ui';c.textAlign='center';c.lineWidth=3;c.strokeStyle='#102521';c.fillStyle=color;
+      const label=(p.name||'Странник')+(i===0?' (вы)':'')+(p.dead?' †':'');
+      const x=Math.max(50,Math.min(width-50,q.x)),y=Math.max(15,Math.min(height-8,q.y-10));
+      if(q.x>=0&&q.x<=width&&q.y>=0&&q.y<=height){c.strokeText(label,x,y);c.fillText(label,x,y);}
+    }
   }
 }

@@ -159,3 +159,11 @@ test('hero draws linen without default shield and shows only equipped armor and 
  assert.ok(canvas.colors.has('#a68955'));assert.ok(canvas.colors.has('#ac844f'));
  g.player.inv.bow=1;g.player.weapon='bow';canvas.colors.clear();r.actor(g.player,g,true);assert.equal(canvas.colors.has('#ac844f'),false);
 });
+
+test('map uses retina resolution and draws local and remote names at different zoom levels',()=>{
+ const saved=globalThis.devicePixelRatio;globalThis.devicePixelRatio=3;
+ try{const canvas=canvasMock();canvas.clientWidth=600;const names=[];canvas.getContext().fillText=(text)=>names.push(text);
+ const renderer=new Renderer(canvasMock()),g=G.createGame();g.player.name='Ивар';g.peers=[{...g.player,id:'friend',name:'Астрид',x:g.player.x+1}];
+ for(const zoom of [1,2,3]){names.length=0;renderer.map(canvas,g,zoom,g.player);assert.equal(canvas.width,1800);assert.ok(names.includes('Ивар (вы)'));assert.ok(names.includes('Астрид'));}
+ }finally{globalThis.devicePixelRatio=saved;}
+});

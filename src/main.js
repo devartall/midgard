@@ -149,7 +149,7 @@ function renderPanel(){
     html=title('Находки')+`<p>Лес оставил записи. Внимательное чтение помогает понять его обитателей.</p>`+(game.notes.length?game.notes.map(i=>`<article class="card"><h3>${G.NOTES[i].title}</h3><p>${G.NOTES[i].text}</p></article>`).join('<br>'):'<div class="notice">У начала тропы стоит камень с надписью.</div>');
   }
   else if(panelName==='map'){
-    html=title('Лес')+`<canvas id="mapCanvas" class="map-canvas" aria-label="Карта леса"></canvas><p class="muted">Светлая точка — вы · золотая — дом · красная — древний круг · сиреневая — вещи. Голубое — озёра, светло-серое — непроходимые скалы, охристые кольца — логова.</p>`;
+    html=title('Карта Мидгарда')+`<div class="map-controls">${button('−','map-zoom:out')}${button('+','map-zoom:in')}${button('Весь мир','map-zoom:reset')}<span id="mapScale"></span></div><div id="mapPlayers" class="map-players">${[game.player,...(game.peers||[])].map(p=>button(escape(p.name||'Странник')+(p===game.player?' (вы)':''),'map-player:'+p.id)).join('')}</div>`+`<canvas id="mapCanvas" class="map-canvas" aria-label="Карта мира и игроков"></canvas><p class="muted">Светлая точка — вы · голубые — друзья (нажмите имя, чтобы найти) · золотая — дом · красная — древний круг · сиреневая — вещи. Голубое — озёра, светло-серое — непроходимые скалы, охристые кольца — логова.</p>`;
   }
   else if(panelName==='death'){
     html=`<div class="eyebrow">ПУТЬ НЕ ЗАКОНЧЕН</div><h2 id="panelTitle">Лес забрал своё</h2><p>Ваши вещи остались на месте гибели. Навыки и запасы дома сохранены. Хранитель восстановил здоровье.</p><div class="row">${button('Возродиться на старте','respawn:start','primary')}${game.parts.some(v=>v.type==='bed'&&v.hp>0)?button('Возродиться дома','respawn:home','secondary'):''}</div><p class="muted">Дом может быть занят монстрами. Выбор старта всегда доступен.</p>`;
@@ -169,7 +169,7 @@ function renderPanel(){
   const latest=game.events.at(-1);
   if(latest&&!['intro','help','death'].includes(panelName))html+=`<p class="notice" role="status">${escape(latest.text)}</p>`;
   $('panel').innerHTML=html;previewProfile();
-  if(panelName==='map')renderer.map($('mapCanvas'),game);
+  if(panelName==='map')drawMap();
   $('importFile')?.addEventListener('change',async event=>{
     if(online)return;
     const f=event.target.files[0];
@@ -193,7 +193,8 @@ function renderPanel(){
   });
 }
 
-let draftProfile=randomProfile();
+let draftProfile=randomProfile(),mapZoom=1,mapFocus=null,mapRefreshAt=0;
+function drawMap(){const roster=[game.player,...(game.peers||[])].map(p=>button(escape(p.name||'Странник')+(p===game.player?' (вы)':''),'map-player:'+p.id)).join('');if($('mapPlayers').innerHTML!==roster)$('mapPlayers').innerHTML=roster;const focus=[game.player,...(game.peers||[])].find(p=>p.id===mapFocus)||game.player;renderer.map($('mapCanvas'),game,mapZoom,focus);$('mapScale').textContent=mapZoom.toFixed(1)+'×';}
 function profileForm(){const look=appearance(draftProfile.appearance),labels={sex:'Пол',skin:'Кожа',hair:'Цвет волос',cloth:'Рубаха',style:'Причёска',beard:'Борода'},names={male:'Мужской',female:'Женский',short:'Короткая',braid:'Коса',shaved:'Бритая',none:'Нет',long:'Длинная'};return '<label>Имя <input id="heroName" maxlength="20" value="'+escape(draftProfile.name)+'"></label><div class="profile-options">'+Object.entries(LOOKS).map(([key,choices])=>'<label>'+labels[key]+'<select id="look-'+key+'">'+choices.map((v,i)=>'<option value="'+v+'" '+(v===look[key]?'selected':'')+'>'+(names[v]||({skin:['Светлая','Смуглая','Тёмная'],hair:['Каштановые','Светлые','Чёрные','Седые'],cloth:['Льняная','Сине-зелёная','Терракотовая','Зелёная']}[key]?.[i]))+'</option>').join('')+'</select></label>').join('')+'</div>'+button('Случайный герой','random-profile','secondary')+'<div id="heroPreview"></div>';}
 function readProfile(){return draftProfile={name:characterName($('heroName')?.value),appearance:appearance(Object.fromEntries(Object.keys(LOOKS).map(k=>[k,$('look-'+k)?.value]))) };}
 function previewProfile(){if(!$('heroPreview')||!['character','online'].includes(panelName))return;const a=readProfile().appearance;$('heroPreview').innerHTML=`<svg viewBox="0 0 120 110" width="120" height="110" aria-label="Внешность героя"><path d="${a.sex==='female'?'M44 60h32l-3 16 11 18H36l11-18Z':'M40 60h40l4 34H36Z'}" fill="${a.cloth}"/><path d="M42 94v14m36-14v14" stroke="#4a493c" stroke-width="12"/><path d="M39 64 30 82m51-18 9 18" stroke="${a.cloth}" stroke-width="9"/><circle cx="60" cy="40" r="${a.sex==='female'?18:20}" fill="${a.skin}"/><path d="M40 34q1-27 39-5l2 8-21-8-20 12Z" fill="${a.style==='shaved'?a.skin:a.hair}"/>${a.style==='braid'?'<path d="M42 35 34 50 37 70" stroke="'+a.hair+'" stroke-width="7"/>':''}${a.beard!=='none'?'<path d="M48 49h25L60 '+(a.beard==='long'?74:62)+'Z" fill="'+a.hair+'"/>':''}<path d="M49 40h4m15 0h4" stroke="#283636" stroke-width="3"/></svg>`;}
@@ -228,6 +229,8 @@ $('panel').addEventListener('click',event=>{
   if(!b)return;
   const [act,arg,extra]=b.dataset.action.split(':');
   audio.play('ui');
+  if(act==='map-zoom'){mapZoom=arg==='reset'?1:Math.max(1,Math.min(3,mapZoom+(arg==='in'?.5:-.5)));drawMap();return;}
+  if(act==='map-player'){mapFocus=arg;mapZoom=Math.max(2,mapZoom);drawMap();return;}
   if(act==='random-profile'){draftProfile=randomProfile();refreshPanel();return;}
   if(act==='character-start'){game.player.appearance=readProfile().appearance;game.player.name=readProfile().name;start();return;}
   if(act==='room-create'||act==='room-join'){connectRoom(act==='room-create');return;}
@@ -492,7 +495,7 @@ function hud(){
   $('staminaText').textContent=Math.floor(p.stamina);
   $('foodText').textContent=p.food>0?`Сытость · ${Math.floor(p.food/60)}:${String(Math.floor(p.food%60)).padStart(2,'0')}`:'Голод · здоровье убывает';
   $('buffText').textContent='';
-  $('statusEffects').innerHTML=G.statusEffects(game).map(effect=>`<span class="status-icon ${effect.kind}" role="img" aria-label="${effect.name}" title="${effect.name}">${icon(effect.icon)}${effect.seconds?`<small>${effect.seconds<60?`${Math.ceil(effect.seconds)}с`:`${Math.ceil(effect.seconds/60)}м`}</small>`:''}</span>`).join('');
+  $('statusEffects').innerHTML=G.statusEffects(game).map(effect=>`<button type="button" class="status-icon ${effect.kind}" aria-label="${escape(effect.name)}" data-tooltip="${escape(effect.name)}">${icon(effect.icon)}${effect.seconds?`<small>${effect.seconds<60?`${Math.ceil(effect.seconds)}с`:`${Math.ceil(effect.seconds/60)}м`}</small>`:''}</button>`).join('');
   $('clock').textContent=`${night?'Ночь':'День'} ${Math.floor(game.time/G.DAY)+1}`;
   $('sun').textContent=night?'☾':'☀';
   $('phase').textContent=`${night?'До рассвета':'До ночи'} ${Math.floor((night?G.DAY-phase:300-phase)/60)}:${String(Math.floor((night?G.DAY-phase:300-phase)%60)).padStart(2,'0')} · ${G.BIOME_NAMES[G.biomeAt(p.x,p.y)]}`;
@@ -503,10 +506,10 @@ function hud(){
   if(game.bossDefeated)objective=['В снега Йотунхейма','Создайте меховой плащ. Путь на восток'];if(game.defeated.includes('snow'))objective=['Земля пламени','Создайте огнестойкий плащ. Идите на юг'];if(game.defeated.includes('fire'))objective=['Сага трёх земель','Хранители повержены'];
   $('objectiveTitle').textContent=objective[0];
   $('objectiveText').textContent=online?(online.error?'Связь: '+online.error:`Комната ${online.code} · ${game.online?.count||1}/4 · PvP ${game.player.pvp?'вкл':'выкл'}`):objective[1];
-  $('interact').innerHTML=icon(context?.kind==='resource'?context.type:'hand')+`<small>${context?escape(context.label):'Действие'} · E</small>`;
+  $('interact').innerHTML=icon(context?.kind==='resource'?context.type:'hand')+`<small><span class="touch-label">Действие</span><span class="keyboard-label">${context?escape(context.label):'Действие'} · E</span></small>`;
   $('interact').disabled=game.player.dead;
-  $('block').innerHTML=icon(G.usingShield(p)?'shield':'hand')+`<small>${G.usingShield(p)?'Щит':'Руками'} · Q</small>`;
-  $('attack').innerHTML=icon(G.weaponOwned(p)?p.weapon:'hand')+'<small>Удар · Пробел</small>';
+  $('block').innerHTML=icon(G.usingShield(p)?'shield':'hand')+`<small>Блок<span class="keyboard-label"> · Q</span></small>`;
+  $('attack').innerHTML=icon(G.weaponOwned(p)?p.weapon:'hand')+'<small>Удар<span class="keyboard-label"> · Пробел</span></small>';
 
   const invaders=G.invaders(game).length,raiders=game.enemies.filter(e=>e.raid&&!e.dead).length;
   $('raid').classList.toggle('hidden',!game.raidPending&&!raiders&&!invaders);
@@ -570,6 +573,7 @@ function frame(now){
       safeSave();
     }
   }
+  if(panelName==='map'&&now-mapRefreshAt>500){mapRefreshAt=now;drawMap();}
   requestAnimationFrame(frame);
 }
 installTooltips({root:document,tip:$('gameTooltip'),toggle:$('tooltipToggle'),message:()=>online?'Подсказки: нажмите на элемент. Онлайн-мир продолжает жить! × — выйти.':'Подсказки: нажмите на элемент. Игра на паузе. × — продолжить.',onMode:on=>{helpMode=on;clearInput();pauseState();}});

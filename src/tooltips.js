@@ -25,11 +25,12 @@ export function installTooltips({root,tip,toggle,onMode=()=>{},message=()=> 'П�
  const mode=on=>{inspecting=on;toggle.setAttribute?.('aria-pressed',String(on));toggle.textContent=on?'×':'?';onMode(on);hide();if(on){tip.textContent=message();tip.hidden=false;tip.style.left='12px';tip.style.top='64px';}};
  toggle.addEventListener('click',()=>mode(!inspecting));
  root.addEventListener('pointerover',e=>{if(e.pointerType==='mouse'&&!inspecting)show(find(e));});
- root.addEventListener('pointerout',()=>{if(!inspecting)hide();});
+ root.addEventListener('pointerout',e=>{if(e.pointerType==='mouse'&&!inspecting)hide();});
  root.addEventListener('focusin',e=>show(find(e)));
  root.addEventListener('focusout',()=>{if(!inspecting)hide();});
  for(const type of ['pointerdown','pointerup','click'])root.addEventListener(type,e=>{
-  if(!inspecting||e.target.closest?.('#tooltipToggle'))return;
+  if(!inspecting){if(type==='pointerdown'){const status=e.target.closest?.('.status-icon');if(status){e.preventDefault();show(status);return;}hide();}if(type==='click'&&e.target.closest?.('.status-icon'))show(e.target.closest('.status-icon'));return;}
+  if(e.target.closest?.('#tooltipToggle'))return;
   e.preventDefault();e.stopImmediatePropagation();if(type==='pointerdown')show(find(e));
  },true);
  root.addEventListener('keydown',e=>{if(e.key==='Escape'){if(inspecting){e.preventDefault();e.stopImmediatePropagation();mode(false);}else hide();}else if(inspecting&&e.key!=='Tab'&&!e.target.closest?.('#tooltipToggle')){e.preventDefault();e.stopImmediatePropagation();}},true);

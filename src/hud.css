@@ -108,3 +108,54 @@ input[type="text"],input:not([type]),textarea,#diagnosticsReadout{user-select:te
 #diagnosticsCopyStatus{display:block;font:12px/1.4 system-ui;margin-top:4px}
 #diagnosticsCopyText{width:100%;height:120px;box-sizing:border-box;font:12px monospace}
 #diagnosticsCopyText[hidden]{display:none}
+
+/* Lightweight gameplay HUD: no inset backdrop obscuring the world. */
+#hud .topbar,#hud .vitals{background:transparent;border:0;box-shadow:none}
+#hud .topbar{padding:0}
+#hud .identity small,#hud .identity .rune{display:none}
+#hud .identity strong{font-size:12px;letter-spacing:1px;text-shadow:0 1px 3px #000}
+#hud .timebox{gap:5px;text-shadow:0 1px 3px #000}
+#hud .timebox #sun{font-size:22px}
+#hud .timebox strong{font-size:11px}
+#hud .timebox small{font-size:8px;letter-spacing:0;margin-top:1px}
+#hud .vitals{padding:0;max-width:124px}
+#hud .meter{height:21px;gap:3px}
+#hud .meter>div{height:12px}
+#hud .meter b{font-size:9px;left:18px}
+#hud .meter>span{width:14px;font-size:12px}
+#hud .foodline{font-size:8px;text-shadow:0 1px 3px #000}
+#hud .status-effects{gap:3px}
+#hud .status-icon{width:32px;height:32px;padding:3px;border-radius:50%}
+#hud .status-icon .icon{width:21px;height:21px}
+#hud .objective{text-shadow:0 1px 3px #000}
+#hud .objective>small{display:none}
+#hud .objective strong{font-size:12px;line-height:1.2}
+#hud .objective span{font-size:9px;line-height:1.3;margin-top:3px}
+#hud .top-actions{gap:3px}
+#hud .top-actions button{width:32px;height:32px}
+#tooltipToggle{width:32px;height:32px;right:calc(env(safe-area-inset-right) + 78px);top:calc(env(safe-area-inset-top) + 8px)}
+.tooltip-space{width:32px}
+#hud .hud-dock{max-width:360px}
+#hud .bottom-nav{background:transparent;border:0;box-shadow:none;max-width:260px;justify-self:center;gap:3px}
+#hud .bottom-nav button{background:#142720a6;border-radius:5px;gap:0}
+#hud .bottom-nav .icon{width:16px;height:16px}
+#hud .bottom-nav span{font-size:7px}
+#hud .quick-slot{padding:2px 1px}
+#hud .quick-slot .icon{width:24px;height:24px}
+#hud .combat{grid-template-rows:48px minmax(0,1fr);gap:4px}
+#hud .interact{width:48px;height:48px;border-radius:50%;justify-self:end;flex-direction:column;padding:0;gap:0}
+#hud .interact small{max-width:100%;font-size:8px;line-height:1.1}
+#hud .interact .icon{width:22px;height:22px}
+#hud .block,#hud .attack{max-height:60px}
+#hud .action small{font-size:9px}
+.touch-label{display:none}
+@media(pointer:coarse){
+ .keyboard-label,.quick-slot kbd{display:none}
+ .touch-label{display:inline}
+ #hud .hud-movement{justify-items:start;align-items:end}
+}
+@media(pointer:fine){#hud .interact{width:100%;border-radius:24px}.interact .keyboard-label{font-size:8px}}
+.map-controls,.map-players{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 0}
+.map-controls button,.map-players button{padding:6px 10px;min-height:32px;font-size:12px}
+.map-canvas{max-height:none;object-fit:fill;border-radius:6px}
+#hud .block,#hud .attack{width:min(58px,calc(var(--hud-dock) - 52px));height:min(58px,calc(var(--hud-dock) - 52px));justify-self:end}

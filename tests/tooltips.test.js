@@ -31,3 +31,15 @@ test('touch inspection pauses through callback and prevents item activation befo
  assert.equal(stopped,3);assert.equal(prevented,3);assert.equal(tip.textContent,'Зелье здоровья');assert.equal(tip.hidden,false);
  events.get('keydown:capture')({...event,key:'Escape'});assert.equal(paused,false);assert.ok(tip.hidden);
 });
+
+test('status explanation opens on a normal touch and survives touch pointerout without inspection mode',()=>{
+ const events=new Map(),tip={id:'tip',hidden:true,offsetWidth:160,offsetHeight:50,style:{}};
+ const root={addEventListener:(name,fn,capture)=>events.set(name+(capture?':capture':''),fn)},toggle={addEventListener(){}};
+ globalThis.innerWidth=844;globalThis.innerHeight=390;
+ installTooltips({root,tip,toggle});
+ const node={dataset:{tooltip:'Голод: здоровье убывает'},getBoundingClientRect:()=>({left:10,top:100,width:32,bottom:132}),setAttribute(){},removeAttribute(){}};
+ events.get('pointerdown:capture')({target:{closest:s=>s==='.status-icon'?node:null},preventDefault(){}});
+ assert.equal(tip.hidden,false);assert.match(tip.textContent,/Голод/);
+ events.get('pointerout')({pointerType:'touch'});assert.equal(tip.hidden,false);
+ events.get('pointerdown:capture')({target:{closest:()=>null}});assert.equal(tip.hidden,true);
+});
