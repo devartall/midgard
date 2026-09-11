@@ -167,5 +167,13 @@ test('UI boots, opens every panel, moves via keyboard, saves and pauses while hi
   elements.get('pauseBtn').onclick();assert.match(elements.get('panel').innerHTML,/Включить PvP/);click('pvp');
   await new Promise(resolve=>setTimeout(resolve,50));frame();await new Promise(resolve=>setImmediate(resolve));
   assert.equal(rooms.rooms.get(session.code).members.get(session.token).player.pvp,true);
+  let copied='';const oldClipboard=Object.getOwnPropertyDescriptor(navigator,'clipboard');
+  try{
+   Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{copied=text;}}});
+   await elements.get('copyDiagnostics').events.get('click')();assert.match(copied,/WebSocket отсутствует/);assert.equal(elements.get('diagnosticsCopyStatus').textContent,'Отчёт скопирован');
+   navigator.clipboard.writeText=async()=>{throw Error('Permission denied');};
+   const field=elements.get('diagnosticsCopyText');field.focus=()=>{};field.select=()=>{};field.setSelectionRange=(a,b)=>{assert.equal(a,0);assert.equal(b,field.value.length);};
+   await elements.get('copyDiagnostics').events.get('click')();assert.equal(field.hidden,false);assert.match(field.value,/HTTP POST polling/);
+  }finally{if(oldClipboard)Object.defineProperty(navigator,'clipboard',oldClipboard);else delete navigator.clipboard;}
   click('leave-online');assert.equal(storage.get('forest-hearth-v1'),soloSave);
 });

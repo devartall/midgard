@@ -101,3 +101,10 @@
 .profile-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.profile-options label{display:grid;gap:4px}.profile-options select{width:100%;min-width:0}#heroPreview{text-align:center}
 
 #onlineDiagnostics{position:fixed;z-index:9990;top:calc(env(safe-area-inset-top) + 56px);left:calc(env(safe-area-inset-left) + 12px);max-width:calc(100vw - 24px);max-height:calc(100dvh - 110px);overflow:auto;background:#14262af2;color:#e2eddd;border:1px solid #9aaf94;border-radius:6px;padding:8px;touch-action:pan-y}#onlineDiagnostics[hidden]{display:none}#onlineDiagnostics summary{cursor:pointer;font:12px system-ui}#diagnosticsReadout{font:11px/1.5 monospace;white-space:pre-wrap;margin:8px 0 0;max-width:620px}
+
+/* Restore native editing/copy menus without changing gameplay gesture capture. */
+input[type="text"],input:not([type]),textarea,#diagnosticsReadout{user-select:text;-webkit-user-select:text;-webkit-touch-callout:default}
+#copyDiagnostics{display:block;margin-top:8px;padding:8px 12px}
+#diagnosticsCopyStatus{display:block;font:12px/1.4 system-ui;margin-top:4px}
+#diagnosticsCopyText{width:100%;height:120px;box-sizing:border-box;font:12px monospace}
+#diagnosticsCopyText[hidden]{display:none}

@@ -1,11 +1,14 @@
-import {randomBytes} from 'node:crypto';
+import {randomBytes,randomInt} from 'node:crypto';
 import {readFile,writeFile,mkdir,rename} from 'node:fs/promises';
 import * as G from '../src/game.js';
 import {appearance,characterName} from '../src/character.js';
-const code=()=>randomBytes(5).toString('hex').toUpperCase();
+export function roomCode(rooms,start=randomInt(1000,10000)){
+ for(let offset=0;offset<9000;offset++){const id=String(1000+(start-1000+offset)%9000);if(!rooms.has(id))return id;}
+ throw Error('Нет свободных кодов комнат');
+}
 export class Rooms{
  constructor(){this.rooms=new Map();}
- create(profile={}){if(this.rooms.size>=50)throw Error('Сервер заполнен');const id=code(),room={id,game:G.createGame(),members:new Map()};this.rooms.set(id,room);return this.join(id,profile);}
+ create(profile={}){if(this.rooms.size>=50)throw Error('Сервер заполнен');const id=roomCode(this.rooms),room={id,game:G.createGame(),members:new Map()};this.rooms.set(id,room);return this.join(id,profile);}
  join(id,profile={},token=null){profile=profile&&typeof profile==='object'?profile:{};const room=this.rooms.get(String(id).toUpperCase());if(!room)throw Error('Комната не найдена');let member=token&&room.members.get(token);
   if(!member){if(room.members.size>=4)throw Error('В комнате уже четыре героя');token=randomBytes(24).toString('hex');const p=G.createGame(1).player;p.id=randomBytes(8).toString('hex');p.name=characterName(profile.name);p.appearance=appearance(profile.appearance);member={player:p,input:{},seen:Date.now(),seq:0,sounds:[]};room.members.set(token,member);}
   for(const biome of room.game.defeated)G.claimBossReward(member.player,biome);member.seen=Date.now();return {code:room.id,token,playerId:member.player.id,state:this.snapshot(room,member)};
