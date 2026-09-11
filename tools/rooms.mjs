@@ -51,7 +51,7 @@ export async function roomRequest(rooms,req,res){
  try{
   const ip=req.socket.remoteAddress,now=Date.now();let rate=attempts.get(ip);if(!rate||now-rate.start>60000){rate={start:now,total:0,joins:0};attempts.set(ip,rate);}if(++rate.total>1800||(pathname!=='/api/poll'&&++rate.joins>12))throw Error('Слишком много запросов. Подождите минуту.');if(attempts.size>5000)for(const [key,value]of attempts)if(now-value.start>60000)attempts.delete(key);
   if(req.method!=='POST'||!String(req.headers['content-type']).startsWith('application/json'))throw Error('Нужен JSON POST');
-  if(req.headers.origin&&new URL(req.headers.origin).host!==req.headers.host)throw Error('Недопустимый источник');
+  if(req.headers.origin&&new URL(req.headers.origin).host!==req.headers.host){const allowed=(process.env.ROOM_ALLOWED_ORIGINS||'').split(',').map(value=>value.trim()).filter(Boolean);if(!allowed.includes(req.headers.origin))throw Error('Этот сайт не разрешён сервером комнат. Добавьте его адрес в ROOM_ALLOWED_ORIGINS.');}
   let body='';for await(const chunk of req){body+=chunk;if(body.length>32768)throw Error('Запрос слишком большой');}const p=JSON.parse(body||'{}');if(!p||typeof p!=='object'||Array.isArray(p))throw Error('Некорректный запрос');let result;
   if(pathname==='/api/create')result=rooms.create(p.profile);
   else if(pathname==='/api/join')result=rooms.join(p.code,p.profile,p.token);

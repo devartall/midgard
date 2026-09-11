@@ -159,7 +159,7 @@ test('UI boots, opens every panel, moves via keyboard, saves and pauses while hi
 
   document.hidden=false;docEvents.get('visibilitychange')();
   const rooms=new Rooms();let session;
-  globalThis.fetch=async(path,options)=>{const p=JSON.parse(options.body);let data;if(path==='/api/create')data=session=rooms.create(p.profile);else if(path==='/api/poll')data=rooms.poll(p.code,p.token,p);else throw Error('Unexpected API');return {ok:true,json:async()=>data};};
+  globalThis.fetch=async(path,options)=>{const p=JSON.parse(options.body);let data;if(path==='/api/create')data=session=rooms.create(p.profile);else if(path==='/api/poll')data=rooms.poll(p.code,p.token,p);else throw Error('Unexpected API');return {ok:true,status:200,headers:new Headers({'content-type':'application/json'}),text:async()=>JSON.stringify(data)};};
   const soloSave=storage.get('forest-hearth-v1');click('online');assert.match(elements.get('panel').innerHTML,/roomCode/);
   elements.get('heroName').value='Онлайн герой';click('room-create');await new Promise(resolve=>setImmediate(resolve));
   assert.equal(session.state.player.name,'Онлайн герой');frame();await new Promise(resolve=>setImmediate(resolve));
