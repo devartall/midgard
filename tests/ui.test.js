@@ -1,3 +1,4 @@
+import {Rooms} from '../tools/rooms.mjs';
 import {createGame,saveGame} from '../src/game.js';
 // Wiring smoke test with a minimal DOM/Canvas adapter, not a browser or visual test.
 import test from 'node:test';
@@ -155,4 +156,16 @@ test('UI boots, opens every panel, moves via keyboard, saves and pauses while hi
   for(let t=3000; t<5000; t+=100)frame();
   elements.get('pauseBtn').onclick();
   assert.equal(JSON.parse(storage.get('forest-hearth-v1')).time,paused.time);
+
+  document.hidden=false;docEvents.get('visibilitychange')();
+  const rooms=new Rooms();let session;
+  globalThis.fetch=async(path,options)=>{const p=JSON.parse(options.body);let data;if(path==='/api/create')data=session=rooms.create(p.profile);else if(path==='/api/poll')data=rooms.poll(p.code,p.token,p);else throw Error('Unexpected API');return {ok:true,json:async()=>data};};
+  const soloSave=storage.get('forest-hearth-v1');click('online');assert.match(elements.get('panel').innerHTML,/roomCode/);
+  elements.get('heroName').value='Онлайн герой';click('room-create');await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(session.state.player.name,'Онлайн герой');frame();await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(storage.get('forest-hearth-v1'),soloSave,'room state does not overwrite solo save');
+  elements.get('pauseBtn').onclick();assert.match(elements.get('panel').innerHTML,/Включить PvP/);click('pvp');
+  await new Promise(resolve=>setTimeout(resolve,50));frame();await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(rooms.rooms.get(session.code).members.get(session.token).player.pvp,true);
+  click('leave-online');assert.equal(storage.get('forest-hearth-v1'),soloSave);
 });

@@ -1,3 +1,6 @@
+import {appearance,characterName} from './character.js';
+import {GEAR,weaponOwned,weaponPower,gearTier,weaponItem} from './gear.js';
+export {GEAR,weaponOwned,weaponItem,gearTier};
 import {SIZE,START,BOSS_POS,CAMPS,SCENERY,BOSSES,biomeAt,BIOME_NAMES,hash,terrainBase,isTrail} from './world.js';
 export {SIZE,START,BOSS_POS,CAMPS,SCENERY,BOSSES,biomeAt,BIOME_NAMES,hash,isTrail} from './world.js';
 import { HEX_DIRS, hexRound, hexDistance, metric, wallDistance, sameEdge, wallSegments, intersects, segmentDistance, toPlane, fromPlane, pointSegment } from './hex.js';
@@ -5,6 +8,7 @@ import { MELEE, ENEMY_REACH, sweptHit, aimAngle } from './combat.js';
 // Pure simulation. Seconds of active play only; no wall-clock progression.
 export const DAY=480;
 export const ITEMS = {
+ ...Object.fromEntries(Object.entries(GEAR).map(([k,v])=>[k,v.name])),frostHide:'Шкура ледяного зверя',emberCore:'Угольное сердце',
   wood:'Дерево', stone:'Камень', berry:'Ягоды', meat:'Мясо', hide:'Шкура', resin:'Смола', sword:'Меч', bow:'Лук', arrow:'Стрелы', armor:'Кожаная броня',shield:'Деревянный щит', roast:'Жаркое', stew:'Лесная похлёбка', trophy:'Сердце леса', potion:'Зелье здоровья', herb:'Лечебные травы', mushroom:'Лесные грибы',crystal:'Ледяной кристалл',obsidian:'Обсидиан',frostHeart:'Сердце зимы',flameHeart:'Сердце пламени',furCloak:'Меховой плащ',fireCloak:'Плащ огнестойкости',rune:'Руна мороза',emberSeal:'Печать обсидиана'
 };
 export const PARTS = {
@@ -60,6 +64,7 @@ export const PARTS = {
   },
 };
 export const RECIPES = {
+ ...Object.fromEntries(Object.entries(GEAR).map(([k,v])=>[k,{cost:v.cost,station:'bench',count:1}])),
   shield:{cost:{wood:8,hide:2,resin:1},station:'bench',count:1},
   emberSeal:{cost:{obsidian:12,crystal:4,resin:4},station:'bench',count:1},
   furCloak:{cost:{trophy:1,hide:6,resin:3},station:'bench',count:1},
@@ -157,7 +162,7 @@ export function makeEnemy(type,x,y,id,raid=false) {
 export function createGame(seed=Math.floor(Math.random()*1e9)) {
   const g={
     version:1,grid:'hex',landscape:4,seed,time:0,player:{
-      ...START,hp:100,stamina:100,food:600,buff:0,foodBonus:0,inv:{
+      ...START,appearance:appearance(),name:'Странник',pvp:false,hp:100,stamina:100,food:600,buff:0,foodBonus:0,inv:{
         wood:0,stone:0,berry:3
       },quickbar:['sword','bow','berry','roast','stew','potion',null,null,null],potionCooldown:0,weapon:'hands',durability:100,skills:{
         sword:0,bow:0,guard:0
@@ -206,7 +211,7 @@ export function createGame(seed=Math.floor(Math.random()*1e9)) {
   for(const b of BOSSES){const e=makeEnemy('boss',b.x,b.y,b.biome==='forest'?'boss':'boss-'+b.biome);applyBiome(e);g.enemies.push(e);}
   return g;
 }
-function applyBiome(e){e.biome=biomeAt(e.x,e.y);const factor=e.biome==='snow'?1.35:e.biome==='fire'?1.7:1;e.hp=e.maxHp=Math.round(e.maxHp*factor);e.damage=Math.round(e.damage*factor);}
+function applyBiome(e){e.biome=biomeAt(e.x,e.y);e.name=(e.biome==='snow'?{wolf:'Ледяной ползун',draugr:'Дух метели',breaker:'Страж ледника',boss:'Хрим'}:e.biome==='fire'?{wolf:'Пепельная саламандра',draugr:'Культист пламени',breaker:'Обсидиановый голем',boss:'Сурт'}:{})[e.type]||enemyData[e.type].name;const factor=e.biome==='snow'?1.35:e.biome==='fire'?1.7:1;e.hp=e.maxHp=Math.round(e.maxHp*factor);e.damage=Math.round(e.damage*factor);}
 export function sound(g,type,x=g.player.x,y=g.player.y){
   if(!g.sounds)g.sounds=[];g.sounds.push({type,x,y});if(g.sounds.length>48)g.sounds.shift();
 }
@@ -369,8 +374,10 @@ export function craft(g,item) {
   spend(g.player.inv,r.cost);
   add(g.player.inv,item,r.count);
   g.stats.crafted++;sound(g,'craft');
-  if(item==='sword'||item==='bow')g.player.weapon=item;
-  if(item==='armor'||item==='shield')g.player[item+'Equipped']=true;
+  if(item==='sword'||item==='bow'){g.player.weapon=item;g.player.weaponItem=item;}
+  if(item==='armor'||item==='shield'){g.player[item+'Equipped']=true;g.player[item+'Item']=item;}
+  if(GEAR[item])useItem(g,item);
+  if(item==='armor'||GEAR[item]?.slot==='armor')g.player.durability=100;
   tell(g,`Создано: ${ITEMS[item]} ×${r.count}`);
   return true;
 }
@@ -386,17 +393,18 @@ export function eat(g,item) {
   tell(g,`${ITEMS[item]}: сытость ${Math.ceil(p.food/60)} мин${f.buff?`, бонус здоровья ${f.buff/60} мин`:''}.`);
   return true;
 }
-export const wearingArmor=p=>!!p.inv.armor&&p.armorEquipped!==false;
-export const carryingShield=p=>!!p.inv.shield&&p.shieldEquipped===true;
+export const wearingArmor=p=>!!p.inv[p.armorItem||'armor']&&p.armorEquipped!==false;
+export const carryingShield=p=>!!p.inv[p.shieldItem||'shield']&&p.shieldEquipped===true;
 export const usingShield=p=>carryingShield(p)&&p.weapon!=='bow';
-export const usableItem=item=>['sword','bow','potion','rune','armor','shield'].includes(item)||Object.hasOwn(FOODS,item);
+export const usableItem=item=>Object.hasOwn(GEAR,item)||['sword','bow','potion','rune','armor','shield'].includes(item)||Object.hasOwn(FOODS,item);
 export function useItem(g,item){
   const p=g.player;if(p.dead||!p.inv[item])return false;
-  if(item==='armor'||item==='shield'){const key=item+'Equipped';p[key]=!p[key];sound(g,'equip');return true;}
-  if(item==='sword'||item==='bow'){p.weapon=item;sound(g,'equip');return true;}
+  if(GEAR[item]){const gear=GEAR[item],key=gear.slot+'Item';if(gear.slot==='weapon'){p.weapon=gear.base;p.weaponItem=item;}else{p[gear.slot+'Equipped']=p[key]!==item||!p[gear.slot+'Equipped'];p[key]=item;}sound(g,'equip');return true;}
+  if(item==='armor'||item==='shield'){const key=item+'Equipped';p[key]=p[item+'Item']!==item||!p[key];p[item+'Item']=item;sound(g,'equip');return true;}
+  if(item==='sword'||item==='bow'){p.weapon=item;p.weaponItem=item;sound(g,'equip');return true;}
   if(item==='rune'){
     if(g.paused||p.magicCooldown>0||p.stamina<30)return false;
-    const target=g.enemies.filter(e=>!e.dead&&distance(e,p)<8&&lineClear(g,p,e)).sort((a,b)=>distance(a,p)-distance(b,p))[0];
+    const target=[...g.enemies,...pvpTargets(g)].filter(e=>!e.dead&&distance(e,p)<8&&lineClear(g,p,e)).sort((a,b)=>distance(a,p)-distance(b,p))[0];
     if(!target)return tell(g,'Нет цели для руны поблизости.'),false;
     p.stamina-=30;p.magicCooldown=4;p.strikeAt=g.time;sound(g,'cast');hurtEnemy(g,target,45);target.stun=target.type==='boss'?.35:1.2;
     g.effects.push({x:p.x,y:p.y,to:{x:target.x,y:target.y},color:'#b1edff',life:.5});return true;
@@ -461,7 +469,7 @@ export function interact(g) {
     p.harvest={id:r.id,type:r.type,started:g.time,hit:false,facing:{...p.facing}};return 'harvest';
   }
   if(c.kind==='grave'){
-    const grave=g.graves.find(v=>v.id===c.id);
+    const grave=g.graves.find(v=>v.id===c.id);if(grave.owner&&grave.owner!==p.id)return tell(g,'Это вещи другого игрока.'),null;
     for(const[k,v]of Object.entries(grave.inv))add(p.inv,k,v);
     g.graves=g.graves.filter(v=>v.id!==c.id);
     tell(g,'Вещи возвращены.');
@@ -515,6 +523,7 @@ export function storeItems(g,withdraw=false) {
   if(!station(g,'chest'))return tell(g,'Подойдите к свободному сундуку.'),false;
   const src=withdraw?g.storage:g.player.inv,dst=withdraw?g.player.inv:g.storage;
   for(const k of Object.keys(src)){
+    if(!withdraw&&Object.hasOwn(GEAR,k))continue;
     if(!withdraw&&['sword','bow','armor','shield','arrow'].includes(k))continue;
     add(dst,k,src[k]);
     delete src[k];
@@ -523,11 +532,11 @@ export function storeItems(g,withdraw=false) {
   return true;
 }
 export function attack(g) {
-  const p=g.player,weapon=p.inv[p.weapon]?p.weapon:'hands',cost=weapon==='bow'?12:15;
+  const p=g.player,weapon=weaponOwned(p)?p.weapon:'hands',cost=weapon==='bow'?12:15;
   if(p.dead||p.harvest||p.attack>0||p.stamina<cost)return false;
   if(weapon==='bow'&&!p.inv.arrow)return tell(g,'Нет стрел. Создайте их у верстака.'),false;
   const range=weapon==='bow'?9:MELEE[weapon].reach+.16;
-  const target=[...g.enemies,...g.animals].filter(e=>!e.dead&&distance(e,p)<=range+(e.type==='boss'?.85:0)&&lineClear(g,p,e)).sort((a,b)=>distance(a,p)-distance(b,p))[0];
+  const target=[...g.enemies,...g.animals,...pvpTargets(g)].filter(e=>!e.dead&&distance(e,p)<=range+(e.type==='boss'?.85:0)&&lineClear(g,p,e)).sort((a,b)=>distance(a,p)-distance(b,p))[0];
   if(target&&distance(p,target)>.001)p.facing={x:(target.x-p.x)/distance(p,target),y:(target.y-p.y)/distance(p,target)};
   p.stamina-=cost;sound(g,weapon==='bow'?'bow':'swing');
   if(weapon==='bow') {
@@ -541,7 +550,7 @@ export function attack(g) {
 }
 function resolveSwing(g,fromTime) {
   const p=g.player,swing=p.swing;if(!swing)return;
-  for(const e of [...g.enemies,...g.animals])if(!e.dead&&!swing.hit.includes(e.id)&&sweptHit(swing,p,e,fromTime,g.time)&&lineClear(g,p,e)) {
+  for(const e of [...g.enemies,...g.animals,...pvpTargets(g)])if(!e.dead&&!swing.hit.includes(e.id)&&sweptHit(swing,p,e,fromTime,g.time)&&lineClear(g,p,e)) {
     hurtEnemy(g,e,MELEE[swing.weapon].damage*(1+(p.skills[swing.weapon]||0)*.016));
     swing.hit.push(e.id);if(swing.weapon!=='hands')gainSkill(g,swing.weapon,1.6);
   }
@@ -552,8 +561,12 @@ function lineClear(g,a,b) {
   for(let i=0;i<=steps;i++){const t=steps?i/steps:0;if(terrain(a.x+(b.x-a.x)*t,a.y+(b.y-a.y)*t,g)==='mountain')return false;}
   return !g.parts.some(p=>p.hp>0&&PARTS[p.type].solid&&!(p.type==='door'&&p.open)&&wallSegments(p).some(([u,v])=>intersects(a,b,u,v)));
 }
+export function claimBossReward(p,biome){p.claimedBossRewards||=[];if(!p.claimedBossRewards.includes(biome)){p.claimedBossRewards.push(biome);add(p.inv,biome==='snow'?'frostHeart':biome==='fire'?'flameHeart':'trophy',1);}}
+export function pvpTargets(g){return (g.players||[]).filter(p=>p!==g.player&&!p.dead&&p.pvp&&g.player.pvp);}
 function hurtEnemy(g,e,n) {
-  n*=g.player.inv.emberSeal?1.3:1;e.hp-=n;sound(g,'impact',e.x,e.y);
+ if(g.players?.includes(e)){if(!pvpTargets(g).includes(e))return;const attacker=g.player;g.player=e;damagePlayer(g,n*weaponPower(attacker),attacker);g.player=attacker;return;}
+
+  n*=weaponPower(g.player)*(g.player.inv.emberSeal?1.3:1);if(e.vulnerableUntil>g.time)n*=1.7;e.hp-=n;sound(g,'impact',e.x,e.y);
   g.effects.push({
     x:e.x,y:e.y,text:`−${Math.round(n)}`,color:'#f7ca83',life:.8
   });
@@ -564,9 +577,11 @@ function hurtEnemy(g,e,n) {
     if(e.type==='boss'){
       const biome=e.biome||'forest';if(biome==='forest')g.bossDefeated=true;
       if(!g.defeated.includes(biome))g.defeated.push(biome);
-      add(g.player.inv,biome==='snow'?'frostHeart':biome==='fire'?'flameHeart':'trophy',1);g.projectiles=[];
+      for(const hero of activePlayers(g))claimBossReward(hero,biome);g.projectiles=[];
       tell(g,biome==='forest'?'Сердце леса откроет рецепт тёплого плаща. Путь в снега лежит на восток.':biome==='snow'?'Сердце зимы защитит от жара. Огненная земля — к югу.':'Сурт пал. Три земли пройдены; мир остаётся доступным.');
     }
+    else if(e.biome==='snow'){add(g.player.inv,'frostHide',2);add(g.player.inv,'crystal',1);}
+    else if(e.biome==='fire'){add(g.player.inv,'emberCore',2);add(g.player.inv,'obsidian',1);}
     else if(['hare','deer','wolf'].includes(e.type)){
       add(g.player.inv,'meat',e.type==='deer'?3:1);add(g.player.inv,'hide',e.type==='hare'?1:2);
     }else {add(g.player.inv,'resin',2);add(g.player.inv,'stone',2);}
@@ -579,11 +594,11 @@ export function damagePlayer(g,n,enemy=null) {
   if(enemy)sound(g,defended&&usingShield(p)?'block':'hurt');
   if(defended){
     const shield=usingShield(p);p.stamina=Math.max(0,p.stamina-(shield?Math.max(5,10-p.skills.guard*.05):15));
-    n*=shield?.2/(1+p.skills.guard*.01):.8/(1+p.skills.guard*.002);
+    n*=shield?([0,.2,.16,.12][gearTier(p,'shield')])/(1+p.skills.guard*.01):.8/(1+p.skills.guard*.002);
     gainSkill(g,'guard',1);
   }
   if(enemy&&wearingArmor(p)&&p.durability>0){
-    n*=.65/(1+p.skills.guard*.004);
+    n*=([0,.65,.5,.4][gearTier(p,'armor')])/(1+p.skills.guard*.004);
     p.durability=Math.max(0,p.durability-(defended?.15:1));
     if(!defended)gainSkill(g,'guard',.4);
   }
@@ -597,18 +612,18 @@ export function damagePlayer(g,n,enemy=null) {
 export function die(g) {
   const p=g.player;
   if(p.dead)return;
-  p.dead=true;sound(g,'death');g.projectiles=[];
+  p.dead=true;sound(g,'death');if(!g.players||g.players.every(v=>v.dead))g.hazards=[];if(!g.players||g.players.every(v=>v.dead))g.projectiles=[];
   p.hp=0;
   p.blocking=false;
   g.graves.push({
-    id:g.nextId++,x:p.x,y:p.y,inv:{
+    id:g.nextId++,owner:p.id||null,x:p.x,y:p.y,inv:{
       ...p.inv
     }
   });
   p.inv={
   };
   p.weapon='hands';p.armorEquipped=false;p.shieldEquipped=false;p.swing=null;p.harvest=null;p.slow=0;p.burning=0;p.exposure=0;
-  for(const e of g.enemies)if(e.type==='boss'&&!e.dead){
+  for(const e of g.enemies)if(e.type==='boss'&&!e.dead&&(!g.players||g.players.every(v=>v.dead))){
     const origin={...e.origin},id=e.id;Object.assign(e,makeEnemy('boss',origin.x,origin.y,id));applyBiome(e);
   }
   tell(g,'Вы пали. Вещи ждут на месте гибели.');
@@ -737,7 +752,7 @@ function updateAnimal(g,a,dt){
   steer(g,a,(target.x-a.x)/n*speed,(target.y-a.y)/n*speed);
 }
 export function bossAttackSpec(kind,enraged=false){
-  return kind==='ranged'?{time:enraged?1:1.3,reach:17,damage:enraged?36:28}:kind==='slam'?{time:enraged?1.15:1.5,reach:4.6,damage:enraged?55:46}:{time:enraged?.85:1.1,reach:3.6,damage:enraged?46:38};
+  return kind==='frostwave'?{time:1.8,reach:8,damage:42}:kind==='meteor'?{time:1.5,reach:17,damage:62}:kind==='summon'?{time:1.8,reach:10,damage:0}:kind==='ranged'?{time:enraged?1:1.3,reach:17,damage:enraged?36:28}:kind==='slam'?{time:enraged?1.15:1.5,reach:4.6,damage:enraged?55:46}:{time:enraged?.85:1.1,reach:3.6,damage:enraged?46:38};
 }
 function updateBoss(g,e,dt){
   const p=g.player,d=distance(e,p);
@@ -749,19 +764,26 @@ function updateBoss(g,e,dt){
   if(e.phase==='windup'){
     e.timer-=dt;if(e.timer>0)return;
     const spec=bossAttackSpec(e.attackKind,angry);e.strikeAt=g.time;sound(g,e.attackKind==='ranged'?'cast':'slam',e.x,e.y);
-    if(e.attackKind==='ranged'){
+    if(e.attackKind==='frostwave'){
+      for(const target of activePlayers(g)){const d=distance(e,target);if(!target.dead&&d>2.3&&d<8){g.player=target;damagePlayer(g,42,e);target.slow=5;}}g.player=p;e.vulnerableUntil=g.time+2.8;
+      g.effects.push({x:e.x,y:e.y,ring:8,color:'#b8f5ff',life:.8,text:'ЛЕДЯНАЯ ВОЛНА'});
+    }else if(e.attackKind==='meteor'){
+      g.hazards||=[];for(const target of activePlayers(g).filter(p=>!p.dead&&distance(p,e)<18))g.hazards.push({x:target.x,y:target.y,at:g.time+1.5,until:g.time+5,source:e.id});
+    }else if(e.attackKind==='summon'){
+      if(g.enemies.filter(v=>v.summoned&&!v.dead).length<6)for(const side of [-1,1]){const pos=nearestLand({x:e.x+side*2,y:e.y+2},g),add=makeEnemy('wolf',pos.x,pos.y,'summon-'+g.nextId++);applyBiome(add);add.summoned=true;g.enemies.push(add);}
+    }else if(e.attackKind==='ranged'){
+
       const aim=aimAngle({x:e.attackFacingX,y:e.attackFacingY});
       for(const offset of (e.biome==='snow'?[-.32,-.16,0,.16,.32]:[-.17,0,.17])){const v=fromPlane(Math.cos(aim+offset)*7,Math.sin(aim+offset)*7);g.projectiles.push({x:e.x,y:e.y,vx:v.x,vy:v.y,life:2.5,source:e.id,biome:e.biome,damage:spec.damage*(e.biome==='snow'?1.2:e.biome==='fire'?1.4:1)});}
     }else{
-      const v=toPlane(p.x-e.x,p.y-e.y),aim=aimAngle({x:e.attackFacingX,y:e.attackFacingY});
-      const facing=(Math.cos(aim)*v.x+Math.sin(aim)*v.y)/Math.max(.001,d);
-      if(d<spec.reach&&(e.attackKind==='slam'||facing>.3)&&lineClear(g,e,p)){damagePlayer(g,spec.damage*(e.biome==='fire'?1.3:1),e);if(e.biome==='snow')p.slow=4;if(e.biome==='fire')p.burning=3;}
+      for(const target of activePlayers(g)){const d=distance(e,target),v=toPlane(target.x-e.x,target.y-e.y),aim=aimAngle({x:e.attackFacingX,y:e.attackFacingY});const facing=(Math.cos(aim)*v.x+Math.sin(aim)*v.y)/Math.max(.001,d);
+      if(!target.dead&&d<spec.reach&&(e.attackKind==='slam'||facing>.3)&&lineClear(g,e,target)){g.player=target;damagePlayer(g,spec.damage*(e.biome==='fire'?1.3:1),e);if(e.biome==='snow')target.slow=4;if(e.biome==='fire')target.burning=3;}}g.player=p;
       g.effects.push({x:e.x,y:e.y,text:e.attackKind==='slam'?(e.biome==='snow'?'ЛЁД':e.biome==='fire'?'ПЛАМЯ':'КОРНИ'):'',ring:spec.reach,color:e.biome==='snow'?'#b8eaff':e.biome==='fire'?'#ff984d':'#edbe7c',life:.5});
     }
     e.phase='idle';e.cooldown=angry?1.25:1.65;return;
   }
   if(d<16&&e.cooldown===0){
-    e.attackKind=d>4.2?'ranged':['swipe','slam','ranged'][e.attackIndex%3];e.attackIndex++;
+    const cycle=e.biome==='snow'?['ranged','frostwave','swipe']:e.biome==='fire'?['meteor','swipe','summon','ranged']:['swipe','slam','ranged'];e.attackKind=e.biome==='forest'&&d>4.2?'ranged':cycle[e.attackIndex%cycle.length];e.attackIndex++;
     const spec=bossAttackSpec(e.attackKind,angry);e.phase='windup';e.timer=spec.time;e.windupTime=spec.time;
     e.attackFacingX=p.x-e.x;e.attackFacingY=p.y-e.y;sound(g,'warning',e.x,e.y);return;
   }
@@ -771,8 +793,9 @@ function updateProjectiles(g,dt){
   for(const bolt of g.projectiles){
     const old={x:bolt.x,y:bolt.y};bolt.x+=bolt.vx*dt;bolt.y+=bolt.vy*dt;bolt.life-=dt;
     if(!lineClear(g,old,bolt)){bolt.life=0;continue;}
-    if(!g.player.dead&&pointSegment(g.player,old,bolt)<.35){
-      const boss=g.enemies.find(e=>e.id===bolt.source)||g.enemies.find(e=>e.type==='boss');damagePlayer(g,bolt.damage,boss);if(!g.player.dead){if(bolt.biome==='fire')g.player.burning=3;else g.player.slow=2.5;}bolt.life=0;
+    const original=g.player,target=activePlayers(g).find(p=>!p.dead&&pointSegment(p,old,bolt)<.35);
+    if(target){g.player=target;
+      const boss=g.enemies.find(e=>e.id===bolt.source)||g.enemies.find(e=>e.type==='boss');damagePlayer(g,bolt.damage,boss);if(!g.player.dead){if(bolt.biome==='fire')g.player.burning=3;else g.player.slow=2.5;}bolt.life=0;g.player=original;
     }
   }
   g.projectiles=g.projectiles.filter(b=>b.life>0);
@@ -791,17 +814,23 @@ export function statusEffects(g){
   return result;
 }
 
-export function tick(g,dt,input={
-  x:0,y:0,block:false
-}) {
-  if(g.paused||g.player.dead)return;
-  dt=clamp(dt,0,.1);
-  g.time+=dt;
+export function activePlayers(g){return g.players||[g.player];}
+function nearestPlayer(g,point){return activePlayers(g).filter(p=>!p.dead).sort((a,b)=>distance(a,point)-distance(b,point))[0];}
+export function tick(g,dt,input={x:0,y:0,block:false}){
+ if(g.paused||g.player.dead)return;dt=clamp(dt,0,.1);g.time+=dt;
+ tickPlayer(g,dt,input);if(!g.player.dead)tickWorld(g,dt);
+}
+export function tickPlayers(g,dt,inputs){
+ dt=clamp(dt,0,.1);g.time+=dt;const previous=g.player;
+ for(const p of g.players){g.player=p;if(!p.dead)tickPlayer(g,dt,inputs[p.id]||{});}
+ g.player=nearestPlayer(g,previous)||previous;tickWorld(g,dt);g.player=previous;
+}
+function tickPlayer(g,dt,input){
   const p=g.player;
   const biome=biomeAt(p.x,p.y),protectedClimate=biome==='snow'?p.inv.furCloak:biome==='fire'?p.inv.fireCloak:true;
-  if(!protectedClimate){p.exposure=(p.exposure||0)+dt;if(p.exposure>12)damagePlayer(g,dt*(biome==='fire'?2:1));}else p.exposure=Math.max(0,(p.exposure||0)-dt*2);
+  if(!protectedClimate){p.exposure=(p.exposure||0)+dt;if(p.exposure>6)damagePlayer(g,dt*(biome==='fire'?9:6));}else p.exposure=Math.max(0,(p.exposure||0)-dt*2);
   if(p.dead)return;
-  p.slow=Math.max(0,(p.slow||0)-dt);p.magicCooldown=Math.max(0,(p.magicCooldown||0)-dt);p.burning=Math.max(0,(p.burning||0)-dt);if(p.burning>0)damagePlayer(g,dt*(p.inv.fireCloak?1:3));if(p.dead)return;
+  p.slow=Math.max(0,(p.slow||0)-dt);p.magicCooldown=Math.max(0,(p.magicCooldown||0)-dt);p.burning=Math.max(0,(p.burning||0)-dt);if(p.burning>0)damagePlayer(g,dt*(p.inv.fireCloak?1:7));if(p.dead)return;
   for(const k of ['attack','hurt','buff','food','potionCooldown'])p[k]=Math.max(0,p[k]-dt);
   p.blocking=!!input.block;
   p.stamina=Math.min(100,p.stamina+dt*(p.blocking?5:SCENERY.some(s=>s.type==='spring'&&distance(s,p)<1.8)?35:20));
@@ -820,6 +849,9 @@ export function tick(g,dt,input={
     const decor=g.parts.some(t=>t.type==='decor'&&t.hp>0);
     p.hp=Math.min(maxHp(g),p.hp+dt*(decor?1.15:1));
   }
+  updateHarvest(g);resolveSwing(g,g.time-dt);
+}
+function tickWorld(g,dt){
   const day=Math.floor(g.time/DAY)+1;
   if(isNight(g)&&g.raidDay<day){
     g.raidDay=day;
@@ -838,13 +870,15 @@ export function tick(g,dt,input={
       startRaid(g);
     }
   }
+  g.hazards||=[];
+  for(const h of g.hazards)if(g.time>=h.at){for(const target of activePlayers(g))if(!target.dead&&distance(target,h)<1.7){const old=g.player;g.player=target;damagePlayer(g,dt*22,g.enemies.find(e=>e.id===h.source));target.burning=2;g.player=old;}}
+  g.hazards=g.hazards.filter(h=>g.time<h.until);
   for(const a of g.animals)updateAnimal(g,a,dt);
   updateProjectiles(g,dt);
-  updateHarvest(g);
-  resolveSwing(g,g.time-dt);
   for(const e of g.enemies){
-    updateEnemy(g,e,dt);
-    if(p.dead)break;
+    const previous=g.player;if(g.players?.length)g.player=nearestPlayer(g,e)||previous;
+    updateEnemy(g,e,dt);g.player=previous;
+    if(!g.players&&g.player.dead)break;
   }
   g.enemies=g.enemies.filter(e=>!(e.raid&&e.dead));
   for(const fx of g.effects)fx.life-=dt;
@@ -906,6 +940,10 @@ export function loadGame(raw) {
   for(const actor of [...g.enemies,...g.animals]){delete actor.patrol;delete actor.patrolUntil;actor.biome=biomeAt(actor.origin.x,actor.origin.y);delete actor.calmAt;actor.fleeing=false;}
   // Restart telegraphs after loading: transient aim data is never trusted from a save.
   for(const enemy of g.enemies){enemy.phase='idle';enemy.timer=0;delete enemy.strikeAt;}
+  g.hazards=[];delete g.players;delete g.peers;delete g.online;
+  p.claimedBossRewards=(Array.isArray(p.claimedBossRewards)?p.claimedBossRewards:g.defeated).filter(b=>['forest','snow','fire'].includes(b));
+  p.appearance=appearance(p.appearance);p.name=characterName(p.name);p.pvp=false;
+  for(const slot of ['weapon','armor','shield'])if(p[slot+'Item']&&!Object.hasOwn(ITEMS,p[slot+'Item']))delete p[slot+'Item'];
   p.slow=0;p.burning=0;p.exposure=0;p.magicCooldown=0;
   g.projectiles=[];g.sounds=[];
   g.events=[];

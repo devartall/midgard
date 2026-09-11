@@ -1,3 +1,6 @@
+import {realmActor} from './realm-art.js';
+import {appearance} from './character.js';
+import {weaponOwned,gearColor} from './gear.js';
 import {heroArmPose} from './arms.js';
 import { edgePoints, wallEdges, corners, fromPlane } from './hex.js';
 import { swingPose, bladeSegment, aimAngle, MELEE, ENEMY_REACH } from './combat.js';
@@ -136,9 +139,9 @@ export function drawBuilding(r, p, g) {
 }
 
 function humanoid(r, actor, g, pose, player) {
-  const c = r.ctx, heavy = actor.type === 'breaker';
-  const cloth = player?(wearingArmor(actor)?'#927650':'#c2b393'):actor.biome==='snow'?'#a7c7d6':actor.biome==='fire'?'#a36a59':heavy ? '#827451' : '#627566';
-  const skin = player ? '#d6bd96' : '#9aa57d';
+  const c = r.ctx, heavy = actor.type === 'breaker',look=appearance(actor.appearance);
+  const cloth = player?(wearingArmor(actor)?gearColor(actor,'armor','#927650'):look.cloth):actor.biome==='snow'?'#a7c7d6':actor.biome==='fire'?'#a36a59':heavy ? '#827451' : '#627566';
+  const skin = player ? look.skin : '#9aa57d';
   c.save(); if (heavy) c.scale(1.28, 1.2);
   // Far arm and legs move in opposition; feet stay grounded at rest.
   if(!player)line(c, [[-7, -24], [-13 - pose.step * 3, -17], [-10 - pose.step * 5, -12]], '#425447', 5);
@@ -155,22 +158,25 @@ function humanoid(r, actor, g, pose, player) {
   for(let i=-6;i<8;i+=3)line(c,[[i,-26],[i+1,-24]],'#cfceb388',.7);
   line(c,[[-7,-20],[-6,-16]],'#263e3766',1);
   c.fillStyle = '#d0b574'; c.fillRect(-1, -15, 4, 4);
-  if (player && wearingArmor(g.player)) {
-    r.poly([[-8, -26], [7, -26], [5, -15], [-6, -15]], '#a68955', '#d0b77d');
+  if (player && wearingArmor(actor)) {
+    r.poly([[-8, -26], [7, -26], [5, -15], [-6, -15]], gearColor(actor,'armor','#a68955'), '#d0b77d');
     for (let i = -4; i < 6; i += 4) line(c, [[i, -24], [i, -17]], '#715c39');
   }
-  oval(c, 0, -33, 6.5, 8, pose.view==='back'?'#65543f':skin);
-  r.poly([[-7, -34], [-6, -41], [4, -42], [8, -35], [3, -37]], player ? '#71543c' : '#485d43');
-  if (player&&pose.view!=='back') { r.poly([[-4, -30], [6, -31], [3, -24], [-3, -26]], '#796346'); }
+  oval(c, 0, -33, 6.5, 8, pose.view==='back'?(player?look.hair:'#65543f'):skin);
+  if(!player||look.style!=='shaved')r.poly([[-7,-34],[-6,-41],[4,-42],[8,-35],[3,-37]],player?look.hair:'#485d43');
+  if (player&&pose.view!=='back'&&look.beard!=='none') { r.poly([[-4, -30], [6, -31], [3, -24], [-3, -26]], look.hair); }
   else if(!player) { line(c, [[-5, -38], [-11, -45]], '#a6a987', 2); line(c, [[4, -39], [10, -45]], '#a6a987', 2); }
+  if(player&&look.style==='braid')line(c,[[-5,-37],[-9,-28],[-7,-19]],look.hair,4);
+  if(player&&look.style==='shaved')oval(c,0,-36,5,3,look.skin);
+  if(player&&look.beard==='long'&&pose.view!=='back')r.poly([[-4,-30],[5,-30],[1,-18]],look.hair);
   c.fillStyle = player ? '#273d37' : '#e1bd77';
   if(pose.view!=='back'){c.fillRect(2,-34,3,2);if(pose.view==='front')c.fillRect(-5,-34,3,2);}
   else{line(c,[[-4,-38],[-3,-29],[0,-25]],'#ad9269',2);line(c,[[-6,-25],[0,-16],[6,-25]],'#506959',3);}
-  if (player && g.player.weapon === 'bow' && g.player.inv.bow && !g.player.swing && !g.player.harvest && !g.player.blocking) {
+  if (player && actor.weapon === 'bow' && weaponOwned(actor) && !actor.swing && !actor.harvest && !actor.blocking) {
     const pull = pose.strike * 7;
     drawArm(c,{x:7,y:-25},{x:15,y:-23},1,actor);
     drawArm(c,{x:2,y:-27},{x:10-pull,y:-25},1,actor);
-    c.strokeStyle = '#d1ad6d'; c.lineWidth = 2; c.beginPath(); c.arc(15, -23, 15, -1.4, 1.4); c.stroke();
+    c.strokeStyle = gearColor(actor,'weapon','#d1ad6d'); c.lineWidth = 2; c.beginPath(); c.arc(15, -23, 15, -1.4, 1.4); c.stroke();
     line(c, [[18, -38], [13 - pull, -23], [18, -8]], '#ddd4b0');
     line(c, [[11 - pull, -23], [31, -23]], '#d6c399');
   } else if (!player) {
@@ -248,6 +254,7 @@ export function drawActor(r, actor, g, player, pose) {
       c.moveTo(q.x,q.y);for(let i=0;i<=24;i++){const angle=aim-spread+spread*2*i/24,v=fromPlane(Math.cos(angle)*radius,Math.sin(angle)*radius),point=r.screen(actor.x+v.x,actor.y+v.y);c.lineTo(point.x,point.y);}c.closePath();
     }else c.ellipse(q.x, q.y, r.scale * (boss&&actor.attackKind==='ranged'?1.2:radius) * Math.SQRT2, r.scale * (boss&&actor.attackKind==='ranged'?1.2:radius) / Math.SQRT2, 0, 0, Math.PI * 2);
     c.fill(); c.stroke();
+    if(boss&&actor.attackKind==='frostwave'){c.strokeStyle='#b8faff';c.beginPath();c.ellipse(q.x,q.y,r.scale*2.3*Math.SQRT2,r.scale*2.3/Math.SQRT2,0,0,Math.PI*2);c.stroke();r.text(q.x,q.y+16,'ВНУТРЬ КОЛЬЦА','#d5fcff',10);}
     if(boss&&actor.attackKind==='ranged'){
       const n=Math.max(.001,distance({x:0,y:0},{x:actor.attackFacingX,y:actor.attackFacingY})),end=r.screen(actor.x+actor.attackFacingX/n*16,actor.y+actor.attackFacingY/n*16);
       line(c,[[q.x,q.y],[end.x,end.y]],'#e6bf8277',3);
@@ -256,7 +263,8 @@ export function drawActor(r, actor, g, player, pose) {
     c.arc(q.x, q.y - (boss ? 185 : 63), 10, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pose.windup); c.stroke();
   }
   c.save(); c.translate(q.x + pose.lunge * pose.facing, q.y + pose.bob); c.scale(pose.facing*(boss?1.85:1.3),boss?1.85:1.3);
-  if (actor.type === 'wolf') wolf(r, pose);
+  if(!player&&actor.biome&&actor.biome!=='forest')realmActor(r,actor,pose);
+  else if (actor.type === 'wolf') wolf(r, pose);
   else if (boss) guardian(r, actor, pose);
   else humanoid(r, actor, g, pose, player);
   if (pose.strike && !player) {
@@ -275,18 +283,18 @@ export function drawActor(r, actor, g, player, pose) {
 }
 
 function drawArm(c,shoulder,target,side,actor){
- const arm=heroArmPose(shoulder,target,side),cloth=wearingArmor(actor)?'#95734e':'#c2b393';
+ const arm=heroArmPose(shoulder,target,side),cloth=wearingArmor(actor)?gearColor(actor,'armor','#95734e'):appearance(actor.appearance).cloth;
  line(c,[[shoulder.x,shoulder.y],[arm.elbow.x,arm.elbow.y]],cloth,6);
- line(c,[[arm.elbow.x,arm.elbow.y],[arm.hand.x,arm.hand.y]],'#c9ac86',4);
- oval(c,arm.hand.x,arm.hand.y,2.8,3,'#dec4a0');return arm;
+ line(c,[[arm.elbow.x,arm.elbow.y],[arm.hand.x,arm.hand.y]],appearance(actor.appearance).skin,4);
+ oval(c,arm.hand.x,arm.hand.y,2.8,3,appearance(actor.appearance).skin);return arm;
 }
-function drawShield(c,hand){
- oval(c,hand.x,hand.y,10,12,'#526765');oval(c,hand.x,hand.y,8.5,10.5,'#ac844f');
+function drawShield(c,hand,actor){
+ oval(c,hand.x,hand.y,10,12,'#526765');oval(c,hand.x,hand.y,8.5,10.5,gearColor(actor,'shield','#ac844f'));
  for(let i=-1;i<=1;i++)line(c,[[hand.x+i*4,hand.y-9],[hand.x+i*4,hand.y+9]],'#765736',1);
  oval(c,hand.x,hand.y,3.5,4,'#b8c5bc');
 }
 function drawMelee(r,actor,g,pose) {
-  const swing=swingPose(actor.swing,g.time),weapon=swing?actor.swing.weapon:actor.inv[actor.weapon]?actor.weapon:'hands';if(weapon==='bow'&&!actor.blocking)return;
+  const swing=swingPose(actor.swing,g.time),weapon=swing?actor.swing.weapon:weaponOwned(actor)?actor.weapon:'hands';if(weapon==='bow'&&!actor.blocking)return;
   const angle=swing?swing.angle:aimAngle(actor.facing)-.7,reach=MELEE[weapon]?.reach||.52;
   const lift=swing?.phase==='windup'?Math.sin(swing.age/MELEE[weapon].windup*Math.PI)*8:0;
   const z=29+lift,q=r.screen(actor.x,actor.y),[u,v]=bladeSegment(actor,angle,reach),a=r.screen(u.x,u.y,z),b=r.screen(v.x,v.y,z);
@@ -296,21 +304,21 @@ function drawMelee(r,actor,g,pose) {
   if(actor.blocking&&!swing){
     const guard=drawArm(c,{x:q.x-8,y:q.y-32},{x:q.x-5,y:q.y-39},-1,actor);
     drawArm(c,{x:q.x+8,y:q.y-32},{x:q.x+5,y:q.y-39},1,actor);
-    if(usingShield(actor))drawShield(c,guard.hand);c.restore();return;
+    if(usingShield(actor))drawShield(c,guard.hand,actor);c.restore();return;
   }
   const target=swing?(weapon==='hands'?b:a):{x:q.x+10*pose.facing+pose.step*2,y:q.y-21};
   const arm=drawArm(c,shoulder,target,pose.facing,actor);
   const offhand=drawArm(c,{x:q.x-8*pose.facing,y:q.y-32},{x:q.x-10*pose.facing-pose.step*2,y:q.y-21},-pose.facing,actor);
-  if(usingShield(actor))drawShield(c,offhand.hand);
+  if(usingShield(actor))drawShield(c,offhand.hand,actor);
   a.x=arm.hand.x;a.y=arm.hand.y;
   if(!swing){b.x=a.x+6*pose.facing;b.y=a.y+reach*r.scale;}
   if(weapon==='sword'){
     line(c,[[a.x,a.y],[b.x,b.y]],'#53665c',5);
-    line(c,[[a.x,a.y],[b.x,b.y]],'#e0e6d0',3);
+    line(c,[[a.x,a.y],[b.x,b.y]],gearColor(actor,'weapon','#e0e6d0'),3);
     const len=Math.max(1,Math.hypot(b.x-a.x,b.y-a.y)),dx=(b.x-a.x)/len,dy=(b.y-a.y)/len;
     line(c,[[a.x-dy*5,a.y+dx*5],[a.x+dy*5,a.y-dx*5]],'#d1b477',2);
   }
-  if(weapon!=='hands')oval(c,a.x,a.y,3.5,3.5,'#d4ba93');
+  if(weapon!=='hands')oval(c,a.x,a.y,3.5,3.5,appearance(actor.appearance).skin);
   if(swing?.phase==='active'){
     const points=[];for(let i=0;i<=6;i++){
       const theta=Math.max(actor.swing.angle-.8,angle-.3+i*.05),tip=bladeSegment(actor,theta,reach)[1],p=r.screen(tip.x,tip.y,z);
@@ -334,5 +342,5 @@ function drawGatherTool(r,actor,g,pose){
   for(let i=0;i<4;i++)line(c,[[i*3,-3],[i*3+2,3]],'#72563c',1);
   if(actor.harvest.type==='wood'){r.poly([[20,-4],[31,-10],[35,-7],[33,7],[28,9],[20,3]],'#9eafa7','#536c6b');line(c,[[31,-10],[35,-7],[33,7],[28,9]],'#e3e4cf',2);line(c,[[22,-3],[28,-3],[27,3]],'#627b76');oval(c,22,0,1,1,'#d9c395');}
   else line(c,[[20,-10],[27,-4],[28,4],[24,10]],'#c1ccc3',4);
-  oval(c,1,0,4,4,'#d9bd92');c.restore();
+  oval(c,1,0,4,4,appearance(actor.appearance).skin);c.restore();
 }

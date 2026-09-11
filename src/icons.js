@@ -1,3 +1,4 @@
+import {GEAR} from './gear.js';
 // Small painted SVG objects: material-colored fills, lit facets and dark edges.
 const path=(d,fill,stroke='#293a3c',width=1.2)=>`<path d="${d}" fill="${fill}" stroke="${stroke}" stroke-width="${width}"/>`;
 const line=(d,color='#ead6aa',width=1.2)=>path(d,'none',color,width);
@@ -56,6 +57,8 @@ export const ICON_ART={
  root:line('M24 3v21m0-14L12 5m12 14 14-9M24 24 10 43m14-19 14 19m-21-9-12-5m25 6 14-6','#966846',5)+line('M23 5v19l-9 14','#cbab6d',1.6),
  water:path('M24 3C19 16 8 24 8 32c0 18 32 18 32 0C40 23 28 13 24 3Z','#5596bc')+path('M23 12C18 25 12 25 14 34c4 10 15 7 17 3Z','#90d4df')+line('M16 31q-1 6 5 6','#e3ffff',2)
 };
+for(const [key,g]of Object.entries(GEAR))ICON_ART[key]=ICON_ART[g.base||g.slot].replaceAll(g.slot==='armor'?'#966b43':g.slot==='shield'?'#608caa':'#bccfd4',g.color)+'<g transform="translate(31 30) scale(.3)">'+gem(g.color,'#dbe9da')+'</g>';
+ICON_ART.frostHide=cloak('#adcbd1','#e5f4ee');ICON_ART.emberCore=flame;
 export function icon(name,cls=''){
  return `<svg class="icon ${cls}" viewBox="0 0 48 48" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_ART[name]||ICON_ART.bag}</svg>`;
 }

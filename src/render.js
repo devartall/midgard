@@ -99,6 +99,10 @@ export class Renderer {
       c.strokeStyle='#655438'; c.lineWidth=2; c.beginPath();
       c.moveTo(q.x,q.y-4); c.lineTo(q.x+side*9,q.y+3); c.stroke();
     }
+    if(biome!=='forest'){
+      for(const side of [-1,1])for(let i=0;i<4;i++){const y=q.y-12-i*13,x=q.x+side*(22-i*3);c.strokeStyle=biome==='snow'?'#7d949d':'#51404a';c.lineWidth=4;c.beginPath();c.moveTo(q.x,y-7);c.lineTo(x,y-15);c.lineTo(x+side*5,y-26);c.stroke();if(biome==='snow'){c.strokeStyle='#e4f5f5';c.lineWidth=5;c.beginPath();c.moveTo(q.x,y-10);c.lineTo(x,y-18);c.stroke();}else{c.fillStyle='#ff9655';c.fillRect(x,y-21,2,5);}}
+      c.restore();return;
+    }
     const tall=1.7+h*.8;
     for(let i=0; i<3; i++){
       const yy=q.y-s*(.35+i*.43),ww=s*(.72-i*.13)*(1+h*.3);
@@ -163,6 +167,7 @@ export class Renderer {
       const q=this.screen(camp.x,camp.y);this.text(q.x,q.y-6,'ᛏ', '#a98c60',19);
       for(let i=0;i<3;i++)this.box(camp.x+(i-1)*1.1,camp.y+1,.17,13*this.zoom,['#8b927f','#3e5150','#596b60']);
     }
+    for(const h of g.hazards||[]){const q=this.screen(h.x,h.y);c.fillStyle=g.time<h.at?'#ffcf8055':'#ed592988';c.strokeStyle='#ffce7b';c.beginPath();c.ellipse(q.x,q.y,this.scale*1.7*1.4,this.scale*.85*1.4,0,0,Math.PI*2);c.fill();c.stroke();this.text(q.x,q.y-15,g.time<h.at?'МЕТЕОР':'ОГОНЬ','#ffdfb3',12);}
     const objects=[];
     const visible=o=>o.x>=minX&&o.x<=maxX&&o.y>=minY&&o.y<=maxY;
     for(const r of g.resources)if(visible(r)&&!g.parts.some(p=>p.x===r.x&&p.y===r.y))objects.push({
@@ -185,6 +190,7 @@ export class Renderer {
     for(const v of g.graves)if(visible(v))objects.push({
       o:v,kind:'grave'
     });
+    for(const p of g.peers||[])if(!p.dead&&visible(p))objects.push({o:p,kind:'peer'});
     objects.push({
       o:g.player,kind:'player'
     });
@@ -198,7 +204,7 @@ export class Renderer {
       else if(kind==='mountain')this.mountain(o,g);
       else if(kind==='nature')this.detail(o,view=>drawNature(view,o,g));
       else if(kind==='animal')this.detail(o,view=>drawAnimal(view,o,g,this.animator.pose(o,g.time)));
-      else if(kind==='enemy'||kind==='player')this.actor(o,g,kind==='player');
+      else if(kind==='enemy'||kind==='player'||kind==='peer'){this.actor(o,g,kind!=='enemy');if(kind==='peer'){const q=this.screen(o.x,o.y);this.text(q.x,q.y-85,(o.name||'Странник')+(o.pvp?' ⚔':''),o.pvp?'#ffc096':'#c1eef0',12);}}
       else{
         this.box(o.x,o.y,.3,(kind==='note'?27:14)*this.zoom,['#a0a28a','#586b60','#718577']);
         const q=this.screen(o.x,o.y);

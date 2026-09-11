@@ -56,7 +56,7 @@ export function drawAnimal(r,a,g,pose){
 export function drawDetailedResource(r,o,g){
  const c=r.ctx,q=r.screen(o.x,o.y);c.save();c.translate(q.x,q.y);
  if(o.type==='crystal'||o.type==='obsidian'){
-  const ice=o.type==='crystal';for(let i=0;i<3;i++){const x=(i-1)*10,h=18+i%2*13;r.poly([[x-6,1],[x-5,-h],[x,-h-7],[x+6,-h],[x+5,2]],ice?'#86cddd':'#493f58',ice?'#e2fcff':'#b2757e');stroke(c,[[x,-h-6],[x,0]],ice?'#f1ffff':'#b498b9',1.5);}
+  const ice=o.type==='crystal';if(!ice){r.poly([[-23,2],[-19,-16],[-8,-12],[1,-29],[15,-24],[25,-4],[17,5]],'#423944','#956253');stroke(c,[[-18,-12],[-8,-4],[2,-17],[13,-7],[19,-12]],'#f49a55',2);c.restore();return;}for(let i=0;i<3;i++){const x=(i-1)*10,h=18+i%2*13;r.poly([[x-6,1],[x-5,-h],[x,-h-7],[x+6,-h],[x+5,2]],ice?'#86cddd':'#493f58',ice?'#e2fcff':'#b2757e');stroke(c,[[x,-h-6],[x,0]],ice?'#f1ffff':'#b498b9',1.5);}
  }else if(o.type==='stone'){
   r.poly([[-17,3],[-19,-9],[-8,-21],[10,-19],[21,-8],[14,6]],'#6e827e','#adb7a5');
   r.poly([[-19,-9],[-8,-21],[3,-8],[-3,4]],'#9ba99a');r.poly([[3,-8],[10,-19],[21,-8],[14,6]],'#526b6b');

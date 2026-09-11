@@ -1,3 +1,5 @@
+import {OnlineSession,mergeSnapshot} from './online.js';
+import {LOOKS,appearance,characterName} from './character.js';
 import {installTooltips} from './tooltips.js';
 import {GameAudio} from './audio.js';
 import { applyHudLayout } from './layout.js';
@@ -6,7 +8,10 @@ import { icon } from './icons.js';
 import { placementPlan, planCost } from './construction.js';
 import { hexRound, fromPlane, wallDistance } from './hex.js';
 import { bindPointer, installGestureGuard } from './input.js';
-import * as G from './game.js';
+import * as Sim from './game.js';
+const G={...Sim};
+let online=null,networkBusy=false;
+for(const name of ['attack','interact','craft','useItem','eat','assignQuickSlot','useQuickSlot','claimHome','build','buildBatch','repair','removePart','respawn','storeItems','transferSkill'])G[name]=(...args)=>online?online.send(name,args.slice(1)):Sim[name](...args);
 import {
   Renderer
 }
@@ -40,6 +45,7 @@ function layoutHud(){
 }
 layoutHud();window.visualViewport?.addEventListener('resize',layoutHud);
 function safeSave(){
+  if(online)return true;
   try{
     localStorage.setItem(SAVE_KEY,G.saveGame(game));
     knownSave=true;
@@ -65,20 +71,21 @@ function stock(inv=game.player.inv){
   return Object.entries(inv).filter(([,v])=>v>0).map(([k,v])=>`<span class="resource-chip" title="${G.ITEMS[k]||k}">${icon(k)} ${v}</span>`).join(' · ')||'Пока пусто';
 }
 function button(text,action,cls=''){
+  if(online&&['save','export','new-confirm'].includes(action))return '';
   return `<button class="${cls}" data-action="${action}">${text}</button>`;
 }
 function inventoryGrid(inv,selectable=false){
   const entries=Object.entries(inv).filter(([,n])=>n>0);
-  return '<div class="inventory-grid">'+entries.map(([k,n])=>`<button class="item-slot ${selectedItem===k&&selectable?'selected':''} ${(game.player.weapon===k||k==='armor'&&G.wearingArmor(game.player)||k==='shield'&&G.carryingShield(game.player))?'equipped':''}" ${selectable?`data-action="select:${k}"`:'disabled'} title="${G.ITEMS[k]}" aria-label="${G.ITEMS[k]}, ${n}">${icon(k)}<span>${G.ITEMS[k]}</span><b>${n}</b>${game.player.weapon===k?'<i>В руках</i>':(k==='armor'&&G.wearingArmor(game.player)||k==='shield'&&G.carryingShield(game.player))?'<i>Надето</i>':''}</button>`).join('')+Array.from({length:Math.max(0,24-entries.length)},()=>'<div class="item-slot empty" aria-hidden="true">·</div>').join('')+'</div>';
+  return '<div class="inventory-grid">'+entries.map(([k,n])=>`<button class="item-slot ${selectedItem===k&&selectable?'selected':''} ${(G.weaponItem(game.player)===k||k===(game.player.armorItem||'armor')&&G.wearingArmor(game.player)||k===(game.player.shieldItem||'shield')&&G.carryingShield(game.player))?'equipped':''}" ${selectable?`data-action="select:${k}"`:'disabled'} title="${G.ITEMS[k]}" aria-label="${G.ITEMS[k]}, ${n}">${icon(k)}<span>${G.ITEMS[k]}</span><b>${n}</b>${game.player.weapon===k?'<i>В руках</i>':(k==='armor'&&G.wearingArmor(game.player)||k==='shield'&&G.carryingShield(game.player))?'<i>Надето</i>':''}</button>`).join('')+Array.from({length:Math.max(0,24-entries.length)},()=>'<div class="item-slot empty" aria-hidden="true">·</div>').join('')+'</div>';
 }
 function itemDetails(k){
   if(!k||!game.player.inv[k])return '<aside class="item-detail"><div class="detail-emblem">ᛉ</div><h3>Снаряжение странника</h3><p>Выберите предмет, чтобы узнать его свойства, использовать или назначить на пояс.</p><small>Броню и щит нужно надеть в сумке или через пояс.</small></aside>';
   const f=G.FOODS[k],usable=G.usableItem(k);
-  return `<aside class="item-detail">${icon(k,'detail-icon')}<small>${f?'ПРИПАСЫ':k==='potion'?'АЛХИМИЯ':usable?'ОРУЖИЕ':'МАТЕРИАЛЫ'}</small><h3>${G.ITEMS[k]}</h3><p>${f?`Сытость: ${f.sat/60} мин.${f.buff?` +${f.hp} к максимуму здоровья на ${f.buff/60} мин.`:''}`:k==='potion'?'Восстанавливает 40 здоровья. Между применениями — 20 секунд. Варится у очага из 2 ягод и 2 лечебных трав.':k==='rune'?'Ледяная вспышка: 45 урона и оглушение ближайшей цели. 30 энергии, перерыв 4 секунды. Назначьте на пояс для боя.':k==='furCloak'?'Защищает от мороза, пока находится в сумке.':k==='fireCloak'?'Защищает от жара, пока находится в сумке.':k==='emberSeal'?'Усиливает урон оружия на 30%, пока находится в сумке.':k==='sword'?'Направленный взмах. Подойдите на длину клинка.':k==='bow'?'Дальний бой. Каждый выстрел расходует стрелу.':k==='shield'?'Надетый щит надёжно блокирует удары. Лук занимает обе руки: с ним блок выполняется руками.':k==='armor'?`Защищает от ударов. Прочность: ${Math.floor(game.player.durability)}%.`:'Пригодится для строительства и ремесла.'}</p>${usable?button(f?'Съесть':k==='potion'?'Выпить':['armor','shield'].includes(k)?(game.player[k+'Equipped']?'Снять':'Надеть'):'Взять в руки',`use:${k}`,'primary'):''}${k==='armor'?button('Ремонт · 2 шкуры','armor-repair'):''}${usable?'<h4>Назначить на пояс</h4><div class="slot-assign">'+Array.from({length:9},(_,i)=>button(i+1,`assign:${k}:${i}`,game.player.quickbar[i]===k?'selected':'')).join('')+'</div><small>Цифры 1–9 или касание ячейки в игре.</small>':''}</aside>`;
+  return `<aside class="item-detail">${icon(k,'detail-icon')}<small>${f?'ПРИПАСЫ':k==='potion'?'АЛХИМИЯ':usable?'ОРУЖИЕ':'МАТЕРИАЛЫ'}</small><h3>${G.ITEMS[k]}</h3><p>${f?`Сытость: ${f.sat/60} мин.${f.buff?` +${f.hp} к максимуму здоровья на ${f.buff/60} мин.`:''}`:k==='potion'?'Восстанавливает 40 здоровья. Между применениями — 20 секунд. Варится у очага из 2 ягод и 2 лечебных трав.':k==='rune'?'Ледяная вспышка: 45 урона и оглушение ближайшей цели. 30 энергии, перерыв 4 секунды. Назначьте на пояс для боя.':k==='furCloak'?'Защищает от мороза, пока находится в сумке.':k==='fireCloak'?'Защищает от жара, пока находится в сумке.':k==='emberSeal'?'Усиливает урон оружия на 30%, пока находится в сумке.':k==='sword'?'Направленный взмах. Подойдите на длину клинка.':k==='bow'?'Дальний бой. Каждый выстрел расходует стрелу.':k==='shield'?'Надетый щит надёжно блокирует удары. Лук занимает обе руки: с ним блок выполняется руками.':G.GEAR[k]?`Снаряжение ступени ${G.GEAR[k].tier}. ${G.GEAR[k].slot==='weapon'?'Повышает урон оружия.':'Повышает защиту.'} Требует ресурсов новых земель.`:k==='armor'?`Защищает от ударов. Прочность: ${Math.floor(game.player.durability)}%.`:'Пригодится для строительства и ремесла.'}</p>${usable?button(f?'Съесть':k==='potion'?'Выпить':G.GEAR[k]?'Экипировать':['armor','shield'].includes(k)?(game.player[k+'Equipped']?'Снять':'Надеть'):'Взять в руки',`use:${k}`,'primary'):''}${k==='armor'?button('Ремонт · 2 шкуры','armor-repair'):''}${usable?'<h4>Назначить на пояс</h4><div class="slot-assign">'+Array.from({length:9},(_,i)=>button(i+1,`assign:${k}:${i}`,game.player.quickbar[i]===k?'selected':'')).join('')+'</div><small>Цифры 1–9 или касание ячейки в игре.</small>':''}</aside>`;
 }
 function renderQuickbar(){
-  const p=game.player,signature=JSON.stringify([p.quickbar,p.inv,p.weapon,p.armorEquipped,p.shieldEquipped,Math.ceil(p.potionCooldown)]);if(signature===barSignature)return;barSignature=signature;
-  $('quickbar').innerHTML=p.quickbar.map((k,i)=>`<button data-slot="${i}" class="quick-slot ${(k===p.weapon||k==='armor'&&G.wearingArmor(p)||k==='shield'&&G.carryingShield(p))?'equipped':''} ${!p.inv[k]?'depleted':''}" title="${k?G.ITEMS[k]:'Пустая ячейка'} (${i+1})" aria-label="${k?G.ITEMS[k]:'Пустая ячейка'}, ${i+1}"><kbd>${i+1}</kbd>${k?icon(k):'<span class="empty-rune">·</span>'}<b>${k&&p.inv[k]||''}</b>${k==='potion'&&p.potionCooldown>0?`<em>${Math.ceil(p.potionCooldown)}с</em>`:''}</button>`).join('');
+  const p=game.player,signature=JSON.stringify([p.quickbar,p.inv,p.weapon,p.weaponItem,p.armorItem,p.shieldItem,p.armorEquipped,p.shieldEquipped,Math.ceil(p.potionCooldown)]);if(signature===barSignature)return;barSignature=signature;
+  $('quickbar').innerHTML=p.quickbar.map((k,i)=>`<button data-slot="${i}" class="quick-slot ${(k===G.weaponItem(p)||k===(p.armorItem||'armor')&&G.wearingArmor(p)||k===(p.shieldItem||'shield')&&G.carryingShield(p))?'equipped':''} ${!p.inv[k]?'depleted':''}" title="${k?G.ITEMS[k]:'Пустая ячейка'} (${i+1})" aria-label="${k?G.ITEMS[k]:'Пустая ячейка'}, ${i+1}"><kbd>${i+1}</kbd>${k?icon(k):'<span class="empty-rune">·</span>'}<b>${k&&p.inv[k]||''}</b>${k==='potion'&&p.potionCooldown>0?`<em>${Math.ceil(p.potionCooldown)}с</em>`:''}</button>`).join('');
 }
 function title(text){
   return `<div class="panel-head"><h2 id="panelTitle">${text}</h2><button class="close-button" data-action="close" aria-label="Закрыть"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>`;
@@ -118,7 +125,7 @@ function renderPanel(){
   const p=game.player;
   let html='';
   if(panelName==='intro'){
-    html=`<div class="intro"><div class="nordic-crest"><span>ᛉ</span><i>ᚠ ᚢ ᚦ ᚨ ᚱ ᚲ</i></div><div class="eyebrow">ОДИНОЧНОЕ ПРИКЛЮЧЕНИЕ</div><h1 id="panelTitle">Мидгард</h1><p class="lead">Под ветвями мирового древа.<br>Возведите свой дом. Переживите тьму.</p><div class="features"><span>${icon('wall')} Свой чертог</span><span>${icon('sword')} Опасные ночи</span><span>${icon('journal')} Руны леса</span></div><p>Собирайте припасы, обустройте убежище и найдите древнего хранителя. Ночью лес становится опаснее. Все действия происходят только пока вы играете.</p><div class="row">${button(knownSave?'Продолжить путь':'Войти в лес','play','primary')}${knownSave?button('Новый путь','new-confirm','secondary'):''}${button('Управление','help','secondary')}</div>${saveError?`<p class="notice">${escape(saveError)}</p>`:''}<footer>Три земли · обычная сложность · без аккаунта</footer></div>`;
+    html=`<div class="intro"><div class="nordic-crest"><span>ᛉ</span><i>ᚠ ᚢ ᚦ ᚨ ᚱ ᚲ</i></div><div class="eyebrow">САГА ТРЁХ ЗЕМЕЛЬ</div><h1 id="panelTitle">Мидгард</h1><p class="lead">Под ветвями мирового древа.<br>Возведите свой дом. Переживите тьму.</p><div class="features"><span>${icon('wall')} Свой чертог</span><span>${icon('sword')} Опасные ночи</span><span>${icon('journal')} Руны леса</span></div><p>Собирайте припасы, обустройте убежище и найдите древнего хранителя. Ночью лес становится опаснее. Все действия происходят только пока вы играете.</p><div class="row">${button(knownSave?'Продолжить путь':'Войти в лес','play','primary')}${knownSave?button('Новый путь','new-confirm','secondary'):''}${button('Управление','help','secondary')}${button('Играть с друзьями','online','secondary')}</div>${saveError?`<p class="notice">${escape(saveError)}</p>`:''}<footer>Три земли · обычная сложность · без аккаунта</footer></div>`;
   }
   else if(panelName==='bag'){
     html=title('Сумка странника')+'<div class="inventory-layout">'+inventoryGrid(p.inv,true)+itemDetails(selectedItem)+'</div><p class="muted">Вещи остаются на месте гибели. Пояс — быстрый доступ к предметам из сумки.</p>';
@@ -146,8 +153,11 @@ function renderPanel(){
   else if(panelName==='death'){
     html=`<div class="eyebrow">ПУТЬ НЕ ЗАКОНЧЕН</div><h2 id="panelTitle">Лес забрал своё</h2><p>Ваши вещи остались на месте гибели. Навыки и запасы дома сохранены. Хранитель восстановил здоровье.</p><div class="row">${button('Возродиться на старте','respawn:start','primary')}${game.parts.some(v=>v.type==='bed'&&v.hp>0)?button('Возродиться дома','respawn:home','secondary'):''}</div><p class="muted">Дом может быть занят монстрами. Выбор старта всегда доступен.</p>`;
   }
+  else if(panelName==='character'||panelName==='online'){
+    html=title(panelName==='online'?'Вместе в Мидгарде':'Ваш странник')+profileForm()+ (panelName==='online'?`<p>Приватная комната до 4 игроков. Мир не останавливается, пока вы в меню. Один общий дом, отдельные вещи. PvP выключен по умолчанию.</p><label>Код комнаты <input id="roomCode" maxlength="10" autocomplete="off"></label><div class="row">${button('Создать комнату','room-create','primary')}${button('Войти по коду','room-join')}${button('Соло','intro')}</div><p id="roomError" role="status"></p>`:button('Начать путь','character-start','primary'));
+  }
   else if(panelName==='pause'){
-    html=title('У огня времени')+`<p>Игра на паузе. День, голод и нападения остановлены.</p><div class="audio-settings">${button('Музыка: '+(audio.settings.music?'вкл':'выкл'),'audio:music','secondary')}${button('Звуки: '+(audio.settings.effects?'вкл':'выкл'),'audio:effects','secondary')}</div><div class="audio-volumes">${['music','effects'].map(channel=>`<label>${channel==='music'?'Музыка':'Эффекты'}<input type="range" min="0" max="100" step="1" data-volume="${channel}" value="${Math.round(audio.settings[channel+'Volume']*100)}" aria-label="Громкость ${channel==='music'?'музыки':'эффектов'}"><output id="volume-${channel}">${Math.round(audio.settings[channel+'Volume']*100)}%</output></label>`).join('')}</div><div class="row">${button('Продолжить','close','primary')}${button('Сохранить','save','secondary')}${button('Копия сохранения','export','secondary')}${button('Управление','help','secondary')}</div><hr><label>Восстановить из файла <input id="importFile" type="file" accept="application/json,.json"></label><p class="muted">Импорт заменит текущий мир только после подтверждения. Локальное сохранение принадлежит этому браузеру; очистка его данных удаляет прогресс.</p><hr>${button('Начать новый путь','new-confirm','danger secondary')}${saveError?`<p class="notice">${escape(saveError)}</p>`:''}`;
+    html=title('У огня времени')+`<p>${online?'Сетевой мир продолжает жить. Меню не защищает героя от опасности.':'Игра на паузе. День, голод и нападения остановлены.'}</p><div class="audio-settings">${button('Музыка: '+(audio.settings.music?'вкл':'выкл'),'audio:music','secondary')}${button('Звуки: '+(audio.settings.effects?'вкл':'выкл'),'audio:effects','secondary')}</div><div class="audio-volumes">${['music','effects'].map(channel=>`<label>${channel==='music'?'Музыка':'Эффекты'}<input type="range" min="0" max="100" step="1" data-volume="${channel}" value="${Math.round(audio.settings[channel+'Volume']*100)}" aria-label="Громкость ${channel==='music'?'музыки':'эффектов'}"><output id="volume-${channel}">${Math.round(audio.settings[channel+'Volume']*100)}%</output></label>`).join('')}</div><div class="row">${online?button(game.player.pvp?'PvP включён — выключить':'Включить PvP','pvp')+button('Выйти из комнаты','leave-online')+`<p>Комната: <b>${online.code}</b>. Мир продолжает жить.</p>`:''}${button('Продолжить','close','primary')}${button('Сохранить','save','secondary')}${button('Копия сохранения','export','secondary')}${button('Управление','help','secondary')}</div><hr><label ${online?'hidden':''}>Восстановить из файла <input id="importFile" type="file" accept="application/json,.json"></label><p class="muted">Импорт заменит текущий мир только после подтверждения. Локальное сохранение принадлежит этому браузеру; очистка его данных удаляет прогресс.</p><hr>${button('Начать новый путь','new-confirm','danger secondary')}${saveError?`<p class="notice">${escape(saveError)}</p>`:''}`;
   }
   else if(panelName==='help'){
     html=title('Как играть')+`<div class="keyhelp"><span>Левый круг / WASD — движение</span><span>Удар / Пробел — атака ближайшей цели</span><span>Блок / удержание Q — защита</span><span>Действие / E — собрать, открыть, прочитать</span><span>Карта / M · Пауза / Esc</span><span>1–9 — предметы на поясе</span></div><hr><p>Соберите дерево и камень вокруг тропы. В меню строительства отметьте участок и поставьте пол. Затем разместите стены по краям, дверь и очаг. Для пола зажмите и протяните область. Для стен протяните область полов — получите замкнутый контур. Одиночное касание ставит стену на ближайшее ребро; R переключает автоматический выбор и шесть направлений. Оставьте проход дверью: разберите один сегмент стены и поставьте дверь. Двигаться при этом можно левым кругом.</p><p>У верстака создайте меч, лук, стрелы, броню и щит. Броню и щит можно надеть или снять в сумке. Без щита блок руками слабее; лук занимает обе руки. Еду можно съесть в сумке. У очага в закрытом доме здоровье восстанавливается, если вы сыты и рядом нет монстров. Короткая вспышка перед атакой противника — время решить, блокировать ли или отступить.</p><p>Нападение начнётся после предупреждения. Закрытая дверь удерживает обычных врагов; развитый дом привлекает разрушителей. Кнопка действия работает с ближайшим объектом — подойдите непосредственно к нужному.</p><div class="row">${button(started?'Вернуться в игру':'К началу',started?'close':'intro','primary')}</div>`;
@@ -157,9 +167,10 @@ function renderPanel(){
   }
   const latest=game.events.at(-1);
   if(latest&&!['intro','help','death'].includes(panelName))html+=`<p class="notice" role="status">${escape(latest.text)}</p>`;
-  $('panel').innerHTML=html;
+  $('panel').innerHTML=html;previewProfile();
   if(panelName==='map')renderer.map($('mapCanvas'),game);
   $('importFile')?.addEventListener('change',async event=>{
+    if(online)return;
     const f=event.target.files[0];
     if(!f)return;
     if(f.size>2_000_000){
@@ -180,6 +191,18 @@ function renderPanel(){
     }
   });
 }
+
+function profileForm(){const look=appearance(game.player.appearance),labels={skin:'Кожа',hair:'Цвет волос',cloth:'Рубаха',style:'Причёска',beard:'Борода'},names={short:'Короткая',braid:'Коса',shaved:'Бритая',none:'Нет',long:'Длинная'};return '<label>Имя <input id="heroName" maxlength="20" value="'+escape(game.player.name||'Странник')+'"></label><div class="profile-options">'+Object.entries(LOOKS).map(([key,choices])=>'<label>'+labels[key]+'<select id="look-'+key+'">'+choices.map((v,i)=>'<option value="'+v+'" '+(v===look[key]?'selected':'')+'>'+(names[v]||({skin:['Светлая','Смуглая','Тёмная'],hair:['Каштановые','Светлые','Чёрные','Седые'],cloth:['Льняная','Сине-зелёная','Терракотовая','Зелёная']}[key]?.[i]))+'</option>').join('')+'</select></label>').join('')+'</div><div id="heroPreview"></div>';}
+function readProfile(){return {name:characterName($('heroName')?.value),appearance:appearance(Object.fromEntries(Object.keys(LOOKS).map(k=>[k,$('look-'+k)?.value]))) };}
+function previewProfile(){if(!$('heroPreview')||!['character','online'].includes(panelName))return;const a=readProfile().appearance;$('heroPreview').innerHTML=`<svg viewBox="0 0 120 110" width="120" height="110" aria-label="Внешность героя"><path d="M40 60h40l4 34H36Z" fill="${a.cloth}"/><path d="M42 94v14m36-14v14" stroke="#4a493c" stroke-width="12"/><path d="M39 64 30 82m51-18 9 18" stroke="${a.cloth}" stroke-width="9"/><circle cx="60" cy="40" r="20" fill="${a.skin}"/><path d="M40 34q1-27 39-5l2 8-21-8-20 12Z" fill="${a.style==='shaved'?a.skin:a.hair}"/>${a.style==='braid'?'<path d="M42 35 34 50 37 70" stroke="'+a.hair+'" stroke-width="7"/>':''}${a.beard!=='none'?'<path d="M48 49h25L60 '+(a.beard==='long'?74:62)+'Z" fill="'+a.hair+'"/>':''}<path d="M49 40h4m15 0h4" stroke="#283636" stroke-width="3"/></svg>`;}
+async function connectRoom(create){if(networkBusy)return;networkBusy=true;try{const code=$('roomCode')?.value.trim().toUpperCase(),profile=readProfile();let stored;try{stored=JSON.parse(localStorage.getItem('midgard-room-'+code));}catch{}
+ const session=await OnlineSession.request(create?'create':'join',{code,profile,token:stored?.token});
+ const connection=new OnlineSession(session,state=>{if(online!==connection)return;const pvp=game.player.pvp;mergeSnapshot(game,state);pauseState();if(panelName==='pause'&&pvp!==game.player.pvp)renderPanel();},result=>{if(online!==connection)return;if(result.value==='craft'||result.value==='storage')openPanel(result.value);if(result.value?.note)openPanel('journal');if(panelName&&['bag','craft','storage'].includes(panelName))refreshPanel();if(result.error)G.tell(game,result.error);});
+ online=connection;
+ try{localStorage.setItem('midgard-room-'+session.code,JSON.stringify({token:session.token}));}catch{}
+ game=session.state;lastEvent=0;barSignature='';start();
+ }catch(e){if($('roomError'))$('roomError').textContent=e.message;}finally{networkBusy=false;}}
+
 function start(){
   audio.unlock();
   started=true;
@@ -191,12 +214,16 @@ function refreshPanel(){
   hud();
 }
 $('panel').addEventListener('input',event=>{const channel=event.target.dataset?.volume;if(!['music','effects'].includes(channel))return;audio.setVolume(channel,Number(event.target.value)/100);$('volume-'+channel).textContent=Math.round(audio.settings[channel+'Volume']*100)+'%';});
-$('panel').addEventListener('change',event=>{if(event.target.dataset?.volume==='effects')audio.play('equip');if(event.target.dataset?.volume)try{localStorage.setItem('midgard-audio',JSON.stringify(audio.settings));}catch{}});
+$('panel').addEventListener('change',event=>{if(event.target.id?.startsWith('look-'))previewProfile();if(event.target.dataset?.volume==='effects')audio.play('equip');if(event.target.dataset?.volume)try{localStorage.setItem('midgard-audio',JSON.stringify(audio.settings));}catch{}});
 $('panel').addEventListener('click',event=>{
   const b=event.target.closest('[data-action]');
   if(!b)return;
   const [act,arg,extra]=b.dataset.action.split(':');
   audio.play('ui');
+  if(act==='character-start'){game.player.appearance=readProfile().appearance;game.player.name=readProfile().name;start();return;}
+  if(act==='room-create'||act==='room-join'){connectRoom(act==='room-create');return;}
+  if(act==='pvp'){online?.send('pvp',[!game.player.pvp]);return;}
+  if(act==='leave-online'){online=null;started=false;game=G.createGame();try{const raw=localStorage.getItem(SAVE_KEY);if(raw)game=G.loadGame(raw);}catch{}openPanel('intro');return;}
   if(act==='audio'){audio.set(arg,!audio.settings[arg]);try{localStorage.setItem('midgard-audio',JSON.stringify(audio.settings));}catch{}refreshPanel();return;}
   if(act==='select'){selectedItem=arg;refreshPanel();return;}
   if(act==='use'){G.useItem(game,arg);refreshPanel();}
@@ -207,12 +234,12 @@ $('panel').addEventListener('click',event=>{
     else closePanel();
     return;
   }
-  if(['intro','pause','help','new-confirm'].includes(act)){
+  if(['intro','pause','help','new-confirm','online','character'].includes(act)){
     openPanel(act);
     return;
   }
   if(act==='play'){
-    start();
+    if(!knownSave){openPanel('character');return;}start();
     return;
   }
   if(act==='new'){
@@ -222,7 +249,7 @@ $('panel').addEventListener('click',event=>{
     };
     lastEvent=0;
     buildType=null;
-    start();
+    openPanel('character');
     return;
   }
   if(act==='claim'){
@@ -253,7 +280,7 @@ $('panel').addEventListener('click',event=>{
     refreshPanel();
   }
   if(act==='focus'){
-    game.player.focus=arg;
+    if(online)online.send('focus',[arg]);else game.player.focus=arg;
     refreshPanel();
   }
   if(act==='transfer'){
@@ -270,6 +297,7 @@ $('panel').addEventListener('click',event=>{
     else G.tell(game,'Рядом нет повреждённых частей.');
     refreshPanel();
   }
+  if(act==='armor-repair'&&online){online.send('armorRepair',[]);return;}
   if(act==='armor-repair'){
     if(G.station(game,'bench')&&G.afford(game.player.inv,{
       hide:2
@@ -443,6 +471,7 @@ window.addEventListener('resize',()=>{
   pauseState();
 });
 function hud(){
+  $('modeLabel').textContent=online?'Комната · '+online.code:'Соло · три земли';
   $('hud').dataset.mode=buildType?'building':'playing';
   renderQuickbar();
   const p=game.player,max=G.maxHp(game),phase=game.time%G.DAY,night=G.isNight(game),context=G.context(game);
@@ -462,11 +491,11 @@ function hud(){
   if(p.inv.sword||p.inv.bow)objective=['Древний круг','Исследуйте лес к северо-востоку'];
   if(game.bossDefeated)objective=['В снега Йотунхейма','Создайте меховой плащ. Путь на восток'];if(game.defeated.includes('snow'))objective=['Земля пламени','Создайте огнестойкий плащ. Идите на юг'];if(game.defeated.includes('fire'))objective=['Сага трёх земель','Хранители повержены'];
   $('objectiveTitle').textContent=objective[0];
-  $('objectiveText').textContent=objective[1];
+  $('objectiveText').textContent=online?(online.error?'Связь: '+online.error:`Комната ${online.code} · ${game.online?.count||1}/4 · PvP ${game.player.pvp?'вкл':'выкл'}`):objective[1];
   $('interact').innerHTML=icon(context?.kind==='resource'?context.type:'hand')+`<small>${context?escape(context.label):'Действие'} · E</small>`;
   $('interact').disabled=game.player.dead;
   $('block').innerHTML=icon(G.usingShield(p)?'shield':'hand')+`<small>${G.usingShield(p)?'Щит':'Руками'} · Q</small>`;
-  $('attack').innerHTML=icon(p.inv[p.weapon]?p.weapon:'hand')+'<small>Удар · Пробел</small>';
+  $('attack').innerHTML=icon(G.weaponOwned(p)?p.weapon:'hand')+'<small>Удар · Пробел</small>';
 
   const invaders=G.invaders(game).length,raiders=game.enemies.filter(e=>e.raid&&!e.dead).length;
   $('raid').classList.toggle('hidden',!game.raidPending&&!raiders&&!invaders);
@@ -503,7 +532,7 @@ function frame(now){
   input.block=touchBlock||keys.has('q');
   if(canControl()&&(touchInteract||keys.has('e'))){const target=G.context(game);if(target?.kind==='resource'&&target.ready<=game.time)G.interact(game);}
   const oldX=game.player.x,oldY=game.player.y;
-  G.tick(game,dt,input);
+  if(online)online.update(now,game.paused||document.hidden?{}:input);else G.tick(game,dt,input);
   if(started&&!game.paused&&(oldX!==game.player.x||oldY!==game.player.y)&&game.time-lastStep>.36){G.sound(game,'step');lastStep=game.time;}
   audio.update(game,started&&!document.hidden);
   if(game.player.dead&&panelName!=='death'){
@@ -525,6 +554,6 @@ function frame(now){
   }
   requestAnimationFrame(frame);
 }
-installTooltips({root:document,tip:$('gameTooltip'),toggle:$('tooltipToggle'),onMode:on=>{helpMode=on;clearInput();pauseState();}});
+installTooltips({root:document,tip:$('gameTooltip'),toggle:$('tooltipToggle'),message:()=>online?'Подсказки: нажмите на элемент. Онлайн-мир продолжает жить! × — выйти.':'Подсказки: нажмите на элемент. Игра на паузе. × — продолжить.',onMode:on=>{helpMode=on;clearInput();pauseState();}});
 openPanel('intro');
 requestAnimationFrame(frame);

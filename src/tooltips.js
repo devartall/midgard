@@ -10,7 +10,7 @@ export function tooltipPosition(rect,width,height,viewport){
  const gap=10,left=viewport.offsetLeft||0,top=viewport.offsetTop||0;
  return {left:Math.max(left+gap,Math.min(rect.left+rect.width/2-width/2,left+viewport.width-width-gap)),top:Math.max(top+gap,Math.min(rect.top-height-gap>=top+gap?rect.top-height-gap:rect.bottom+gap,top+viewport.height-height-gap))};
 }
-export function installTooltips({root,tip,toggle,onMode=()=>{}}){
+export function installTooltips({root,tip,toggle,onMode=()=>{},message=()=> 'Подсказки: нажмите на предмет или кнопку. Игра на паузе. Нажмите ×, чтобы продолжить.'}){
  let inspecting=false,anchor=null;
  const selector='[data-tooltip],[title],button,input,select,[role="img"],.recipe-icon';
  const find=event=>event.target.closest?.(selector);
@@ -22,7 +22,7 @@ export function installTooltips({root,tip,toggle,onMode=()=>{}}){
   const p=tooltipPosition(node.getBoundingClientRect(),tip.offsetWidth,tip.offsetHeight,v);
   tip.style.left=p.left+'px';tip.style.top=p.top+'px';
  };
- const mode=on=>{inspecting=on;toggle.setAttribute?.('aria-pressed',String(on));toggle.textContent=on?'×':'?';onMode(on);hide();if(on){tip.textContent='Подсказки: нажмите на предмет или кнопку. Игра на паузе. Нажмите ×, чтобы продолжить.';tip.hidden=false;tip.style.left='12px';tip.style.top='64px';}};
+ const mode=on=>{inspecting=on;toggle.setAttribute?.('aria-pressed',String(on));toggle.textContent=on?'×':'?';onMode(on);hide();if(on){tip.textContent=message();tip.hidden=false;tip.style.left='12px';tip.style.top='64px';}};
  toggle.addEventListener('click',()=>mode(!inspecting));
  root.addEventListener('pointerover',e=>{if(e.pointerType==='mouse'&&!inspecting)show(find(e));});
  root.addEventListener('pointerout',()=>{if(!inspecting)hide();});
