@@ -10,10 +10,10 @@
 <div id="hud">
   <header class="topbar">
     <div class="identity"><span class="rune">ᛟ</span><div><strong>МИДГАРД</strong><small>Соло · три земли</small></div></div>
-    <div class="timebox"><span id="sun">☀</span><div><strong id="clock">День 1</strong><small id="phase">Утро · лес пробуждается</small></div></div>
-    <div class="top-actions"><button id="mapBtn" title="Карта (M)" aria-label="Карта">◇</button><button id="pauseBtn" title="Пауза (Esc)" aria-label="Пауза">Ⅱ</button></div>
+    <div class="timebox" data-tooltip="Время суток: ночью монстры замечают вас дальше. Готовьтесь к ночи заранее."><span id="sun">☀</span><div><strong id="clock">День 1</strong><small id="phase">Утро · лес пробуждается</small></div></div>
+    <div class="top-actions"><span class="tooltip-space" aria-hidden="true"></span><button id="mapBtn" title="Карта (M)" aria-label="Карта">◇</button><button id="pauseBtn" title="Пауза (Esc)" aria-label="Пауза">Ⅱ</button></div>
   </header>
-  <section class="vitals"><div class="meter hp"><span>✚</span><div><i id="hpFill"></i></div><b id="hpText">100</b></div><div class="meter stamina"><span>ϟ</span><div><i id="staminaFill"></i></div><b id="staminaText">100</b></div><div class="foodline"><span>◒</span><span id="foodText"></span></div><small id="buffText"></small><div id="statusEffects" class="status-effects" aria-label="Эффекты персонажа"></div></section>
+  <section class="vitals"><div class="meter hp" data-tooltip="Здоровье: при нуле герой погибает. Еда повышает максимум, зелья восстанавливают здоровье."><span>✚</span><div><i id="hpFill"></i></div><b id="hpText">100</b></div><div class="meter stamina" data-tooltip="Энергия расходуется на удары, стрельбу и блок. Отдых позволяет её восстановить."><span>ϟ</span><div><i id="staminaFill"></i></div><b id="staminaText">100</b></div><div class="foodline" data-tooltip="Сытость: когда еда закончится, голод начнёт отнимать здоровье."><span>◒</span><span id="foodText"></span></div><small id="buffText"></small><div id="statusEffects" class="status-effects" aria-label="Эффекты персонажа"></div></section>
   <aside class="objective"><small>ПУТЬ В ЛЕС</small><strong id="objectiveTitle">Разведите свой очаг</strong><span id="objectiveText">Соберите дерево и камень</span></aside>
   <div class="hud-alerts">
   <div id="raid" class="raid hidden" role="status"></div>
@@ -31,6 +31,8 @@
 </div>
 <div id="overlay" class="overlay hidden"><section id="panel" class="panel" role="dialog" aria-modal="true" aria-labelledby="panelTitle"></section></div>
 <div id="portrait"><span>↻</span><h2>Поверните телефон</h2><p>Мидгард рассчитан на горизонтальный экран<br>и управление двумя руками.</p></div>
+<button id="tooltipToggle" aria-label="Подсказки: включить режим объяснения кнопок" aria-pressed="false">?</button>
+<div id="gameTooltip" role="tooltip" hidden></div>
 <script type="module" src="src/main.js"></script>
 </body>
 </html>

@@ -1,3 +1,4 @@
+import {installTooltips} from './tooltips.js';
 import {GameAudio} from './audio.js';
 import { applyHudLayout } from './layout.js';
 import { gameKey } from './keys.js';
@@ -14,6 +15,7 @@ const $=id=>document.getElementById(id),canvas=$('world'),renderer=new Renderer(
 const SAVE_KEY='forest-hearth-v1';
 let audioSettings={music:true,effects:true};try{const stored=JSON.parse(localStorage.getItem('midgard-audio'));if(stored&&typeof stored.music==='boolean'&&typeof stored.effects==='boolean')audioSettings=stored;}catch{}
 const audio=new GameAudio(audioSettings);let lastStep=0;
+let helpMode=false;
 let game=G.createGame(),started=false,panelName=null,buildType=null,buildEdge=null,buildDrag=null,selectedItem=null,barSignature='',pointer=null,joy=null,lastFrame=0,lastHud=0,saveClock=0,lastEvent=0,toastUntil=0,saveError='',knownSave=false;
 const input={
   x:0,y:0,block:false
@@ -97,7 +99,7 @@ function clearInput(){
   document.querySelectorAll('.pressed').forEach(b=>b.classList.remove('pressed'));
 }
 function pauseState(){
-  game.paused=!started||!!panelName||document.hidden||matchMedia('(orientation: portrait) and (max-width: 700px)').matches;
+  game.paused=helpMode||!started||!!panelName||document.hidden||matchMedia('(orientation: portrait) and (max-width: 700px)').matches;
 }
 function openPanel(name){
   panelName=name;
@@ -328,6 +330,9 @@ $('quickbar').addEventListener('pointerdown',event=>{
 });
 for(const b of document.querySelectorAll('[data-panel]'))b.innerHTML=icon(b.dataset.panel==='build'?'wall':b.dataset.panel)+`<span>${({bag:'Сумка',build:'Строить',craft:'Ремесло',skills:'Навыки',journal:'Сага'})[b.dataset.panel]}</span>`;
 $('mapBtn').innerHTML=icon('map');
+$('attack').dataset.tooltip='Атака · Пробел. Мечом бейте на длине клинка; лук расходует стрелы.';
+$('block').dataset.tooltip='Удерживайте для блока · Q. Щит поглощает намного больше урона, чем руки; блок расходует энергию.';
+$('interact').dataset.tooltip='Действие · E. Сбор ресурсов, двери, сундуки и находки рядом с героем. Дерево и камень требуют нескольких ударов.';
 $('block').innerHTML=icon('hand')+'<small>Блок руками · Q</small>';
 
 $('rotateBuild').onclick=()=>{
@@ -520,5 +525,6 @@ function frame(now){
   }
   requestAnimationFrame(frame);
 }
+installTooltips({root:document,tip:$('gameTooltip'),toggle:$('tooltipToggle'),onMode:on=>{helpMode=on;clearInput();pauseState();}});
 openPanel('intro');
 requestAnimationFrame(frame);

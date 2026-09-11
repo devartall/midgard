@@ -1,4 +1,4 @@
-import {armPose} from './arms.js';
+import {heroArmPose} from './arms.js';
 import { edgePoints, wallEdges, corners, fromPlane } from './hex.js';
 import { swingPose, bladeSegment, aimAngle, MELEE, ENEMY_REACH } from './combat.js';
 import { bossAttackSpec, wearingArmor, usingShield, PARTS, blocked, distance } from './game.js';
@@ -148,7 +148,7 @@ function humanoid(r, actor, g, pose, player) {
     line(c, [[side * 5 + stride - 2, -1], [side * 5 + stride + 3, -1]], '#584c36', 4);
   }
   const sway = pose.step * 2;
-  r.poly([[-9, -28], [5, -28], [10 + sway, -8], [-11 + sway, -5], [-13, -13]], player ? '#a29579' : '#3c5041', '#728571');
+  if(!player)r.poly([[-9,-28],[5,-28],[10+sway,-8],[-11+sway,-5],[-13,-13]],'#3c5041','#728571');
   r.poly([[-9, -27], [8, -27], [10, -12], [-9, -12]], actor.hurt > 0 ? '#ca9a87' : cloth, '#263f38');
   line(c, [[-8, -23], [6, -16]], '#c4b48a', 2);
   line(c, [[-8, -13], [9, -13]], '#54442e', 3);
@@ -169,7 +169,7 @@ function humanoid(r, actor, g, pose, player) {
   if (player && g.player.weapon === 'bow' && g.player.inv.bow && !g.player.swing && !g.player.harvest && !g.player.blocking) {
     const pull = pose.strike * 7;
     drawArm(c,{x:7,y:-25},{x:15,y:-23},1,actor);
-    drawArm(c,{x:-7,y:-25},{x:10-pull,y:-23},-1,actor);
+    drawArm(c,{x:2,y:-27},{x:10-pull,y:-25},1,actor);
     c.strokeStyle = '#d1ad6d'; c.lineWidth = 2; c.beginPath(); c.arc(15, -23, 15, -1.4, 1.4); c.stroke();
     line(c, [[18, -38], [13 - pull, -23], [18, -8]], '#ddd4b0');
     line(c, [[11 - pull, -23], [31, -23]], '#d6c399');
@@ -275,7 +275,7 @@ export function drawActor(r, actor, g, player, pose) {
 }
 
 function drawArm(c,shoulder,target,side,actor){
- const arm=armPose(shoulder,target,side,10,10),cloth=wearingArmor(actor)?'#95734e':'#c2b393';
+ const arm=heroArmPose(shoulder,target,side),cloth=wearingArmor(actor)?'#95734e':'#c2b393';
  line(c,[[shoulder.x,shoulder.y],[arm.elbow.x,arm.elbow.y]],cloth,6);
  line(c,[[arm.elbow.x,arm.elbow.y],[arm.hand.x,arm.hand.y]],'#c9ac86',4);
  oval(c,arm.hand.x,arm.hand.y,2.8,3,'#dec4a0');return arm;
@@ -298,9 +298,9 @@ function drawMelee(r,actor,g,pose) {
     drawArm(c,{x:q.x+8,y:q.y-32},{x:q.x+5,y:q.y-39},1,actor);
     if(usingShield(actor))drawShield(c,guard.hand);c.restore();return;
   }
-  const target=swing?(weapon==='hands'?b:a):{x:q.x+10*pose.facing+pose.step*2,y:q.y-16};
+  const target=swing?(weapon==='hands'?b:a):{x:q.x+10*pose.facing+pose.step*2,y:q.y-21};
   const arm=drawArm(c,shoulder,target,pose.facing,actor);
-  const offhand=drawArm(c,{x:q.x-8*pose.facing,y:q.y-32},{x:q.x-10*pose.facing-pose.step*2,y:q.y-17},-pose.facing,actor);
+  const offhand=drawArm(c,{x:q.x-8*pose.facing,y:q.y-32},{x:q.x-10*pose.facing-pose.step*2,y:q.y-21},-pose.facing,actor);
   if(usingShield(actor))drawShield(c,offhand.hand);
   a.x=arm.hand.x;a.y=arm.hand.y;
   if(!swing){b.x=a.x+6*pose.facing;b.y=a.y+reach*r.scale;}
@@ -327,7 +327,7 @@ function drawGatherTool(r,actor,g,pose){
   const angle=age<.12?-.4-age/.12*2.4:age<.22?-2.8+(age-.12)/.1*2.6:-.2+(age-.22)/.33*.3;
   c.save();
   const grip={x:q.x+9*pose.facing,y:q.y-28-Math.sin(Math.min(1,age/.22)*Math.PI)*3};
-  drawArm(c,{x:q.x-8*pose.facing,y:q.y-32},grip,-pose.facing,actor);
+  drawArm(c,{x:q.x-8*pose.facing,y:q.y-32},{x:q.x-10*pose.facing,y:q.y-21},-pose.facing,actor);
   drawArm(c,{x:q.x+8*pose.facing,y:q.y-32},grip,pose.facing,actor);
   c.translate(grip.x,grip.y);c.scale(pose.facing,1);c.rotate(angle);
   line(c,[[0,0],[25,0]],'#5e472e',6);line(c,[[0,-1],[25,-1]],'#c3a577',3);
