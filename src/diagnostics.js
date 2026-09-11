@@ -10,14 +10,15 @@ const sample=(list,value)=>{if(Number.isFinite(value)){list.push(value);if(list.
 export class OnlineDiagnostics{
  constructor(){this.enabled=false;this.reset();}
  reset(now=performance.now()){
-  for(const key of ['frames','inputs','snapshots','positions','snapshotPositions','outsideSnapshots','errors'])this[key]=new RateMeter(now);
-  this.rtts=[];this.drawTimes=[];this.parseTimes=[];this.mergeTimes=[];this.serial=0;this.frameSerial=0;this.previous=null;this.snapshotPrevious=null;this.server=null;this.messageBytes=null;this.snapshotBytes=null;this.inputBytes=null;this.lastSnapshot=null;
+  for(const key of ['frames','inputs','snapshots','positions','snapshotPositions','outsideSnapshots','errors','visualPositions'])this[key]=new RateMeter(now);
+  this.visualPrevious=null;this.rtts=[];this.drawTimes=[];this.parseTimes=[];this.mergeTimes=[];this.serial=0;this.frameSerial=0;this.previous=null;this.snapshotPrevious=null;this.server=null;this.messageBytes=null;this.snapshotBytes=null;this.inputBytes=null;this.lastSnapshot=null;
  }
  setEnabled(on){this.enabled=on;this.reset();}
  frame(now,player){if(!this.enabled)return;this.frames.mark(now);
   if(this.previous&&(player.x!==this.previous.x||player.y!==this.previous.y)){this.positions.mark(now);if(this.serial===this.frameSerial)this.outsideSnapshots.mark(now);}
   this.previous={x:player.x,y:player.y};this.frameSerial=this.serial;
  }
+ visualFrame(now,player){if(!this.enabled)return;if(this.visualPrevious&&(player.x!==this.visualPrevious.x||player.y!==this.visualPrevious.y))this.visualPositions.mark(now);this.visualPrevious={x:player.x,y:player.y};}
  sent(bytes,now=performance.now()){if(!this.enabled)return;this.inputs.mark(now);this.inputBytes=bytes;}
  received(metric,state,now=performance.now()){
   if(!this.enabled)return;this.snapshots.mark(now);this.serial++;this.lastSnapshot=now;
@@ -42,6 +43,7 @@ export class OnlineDiagnostics{
    'Server event-loop delay p95 / max: '+n(this.server?.loopP95Ms,' ms')+' / '+n(this.server?.loopMaxMs,' ms')+' (probe 10 ms)',
    'Server tick CPU p95: '+n(this.server?.tickCpuP95Ms,' ms')+' · JSON encode: '+n(this.server?.serializeMs,' ms'),
    'Позиция героя в мире: '+hz(this.positions)+' · изменения в snapshots: '+hz(this.snapshotPositions),
+   'Отображаемая позиция: '+hz(this.visualPositions),
    'Позиция без нового snapshot: '+hz(this.outsideSnapshots),
    'Client draw / JSON parse / merge p95: '+n(percentile(this.drawTimes),' ms')+' / '+n(percentile(this.parseTimes),' ms')+' / '+n(percentile(this.mergeTimes),' ms'),
    'RTT включает сервер и загрузку тела; это не чистый сетевой ping.',

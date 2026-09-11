@@ -204,7 +204,7 @@ export class Renderer {
       else if(kind==='mountain')this.mountain(o,g);
       else if(kind==='nature')this.detail(o,view=>drawNature(view,o,g));
       else if(kind==='animal')this.detail(o,view=>drawAnimal(view,o,g,this.animator.pose(o,g.time)));
-      else if(kind==='enemy'||kind==='player'||kind==='peer'){this.actor(o,g,kind!=='enemy');if(kind==='peer'){const q=this.screen(o.x,o.y);this.text(q.x,q.y-85,(o.name||'Странник')+(o.pvp?' ⚔':''),o.pvp?'#ffc096':'#c1eef0',12);}}
+      else if(kind==='enemy'||kind==='player'||kind==='peer'){this.actor(o,g,kind!=='enemy');if(kind==='peer'||kind==='player'){const q=this.screen(o.x,o.y);this.text(q.x,q.y-85,(o.name||'Странник')+(o.pvp?' ⚔':''),o.pvp?'#ffc096':'#c1eef0',12);}}
       else{
         this.box(o.x,o.y,.3,(kind==='note'?27:14)*this.zoom,['#a0a28a','#586b60','#718577']);
         const q=this.screen(o.x,o.y);

@@ -152,17 +152,17 @@ function humanoid(r, actor, g, pose, player) {
   }
   const sway = pose.step * 2;
   if(!player)r.poly([[-9,-28],[5,-28],[10+sway,-8],[-11+sway,-5],[-13,-13]],'#3c5041','#728571');
-  r.poly([[-9, -27], [8, -27], [10, -12], [-9, -12]], actor.hurt > 0 ? '#ca9a87' : cloth, '#263f38');
+  r.poly(player&&look.sex==='female'?[[-7,-27],[6,-27],[5,-20],[10,-10],[-10,-10],[-6,-20]]:[[-9, -27], [8, -27], [10, -12], [-9, -12]], actor.hurt > 0 ? '#ca9a87' : cloth, '#263f38');
   line(c, [[-8, -23], [6, -16]], '#c4b48a', 2);
   line(c, [[-8, -13], [9, -13]], '#54442e', 3);
   for(let i=-6;i<8;i+=3)line(c,[[i,-26],[i+1,-24]],'#cfceb388',.7);
   line(c,[[-7,-20],[-6,-16]],'#263e3766',1);
   c.fillStyle = '#d0b574'; c.fillRect(-1, -15, 4, 4);
   if (player && wearingArmor(actor)) {
-    r.poly([[-8, -26], [7, -26], [5, -15], [-6, -15]], gearColor(actor,'armor','#a68955'), '#d0b77d');
+    r.poly(look.sex==='female'?[[-6,-26],[5,-26],[4,-16],[-5,-16]]:[[-8, -26], [7, -26], [5, -15], [-6, -15]], gearColor(actor,'armor','#a68955'), '#d0b77d');
     for (let i = -4; i < 6; i += 4) line(c, [[i, -24], [i, -17]], '#715c39');
   }
-  oval(c, 0, -33, 6.5, 8, pose.view==='back'?(player?look.hair:'#65543f'):skin);
+  oval(c, 0, -33, player&&look.sex==='female'?5.5:6.5, 8, pose.view==='back'?(player?look.hair:'#65543f'):skin);
   if(!player||look.style!=='shaved')r.poly([[-7,-34],[-6,-41],[4,-42],[8,-35],[3,-37]],player?look.hair:'#485d43');
   if (player&&pose.view!=='back'&&look.beard!=='none') { r.poly([[-4, -30], [6, -31], [3, -24], [-3, -26]], look.hair); }
   else if(!player) { line(c, [[-5, -38], [-11, -45]], '#a6a987', 2); line(c, [[4, -39], [10, -45]], '#a6a987', 2); }

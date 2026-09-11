@@ -1,6 +1,7 @@
+import {OnlinePresentation} from './presentation.js';
 import {OnlineDiagnostics} from './diagnostics.js';
 export class OnlineSession{
- constructor(session,onState,onResult){Object.assign(this,session);this.onState=onState;this.onResult=onResult;this.queue=[];this.seq=Date.now();this.busy=false;this.last=0;this.error='';this.diagnostics=new OnlineDiagnostics();}
+ constructor(session,onState,onResult){Object.assign(this,session);this.onState=onState;this.onResult=onResult;this.queue=[];this.seq=Date.now();this.busy=false;this.last=0;this.error='';this.diagnostics=new OnlineDiagnostics();this.presentation=new OnlinePresentation();if(session.state)this.presentation.push(session.state);}
  static async request(path,payload,observe=null){
   const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),8000);
   try{
@@ -16,7 +17,7 @@ export class OnlineSession{
  }
 
  send(name,args){if(name==='interact'&&this.queue.some(a=>a.name===name))return true;if(this.queue.length<24)this.queue.push({seq:++this.seq,name,args});return true;}
- async update(now,input){if(this.busy||now-this.last<100)return;this.busy=true;this.last=now;try{const response=await OnlineSession.request('poll',{code:this.code,token:this.token,input,actions:this.queue.slice(0,12)},this.diagnostics.enabled?this.diagnostics:null);this.queue=this.queue.filter(a=>a.seq>response.seq);this.error='';const mergeStart=performance.now();this.onState(response.state);this.diagnostics.merged(performance.now()-mergeStart);for(const result of response.results)this.onResult(result);}catch(e){this.error=e.message;if(this.diagnostics.enabled)this.diagnostics.errors.mark();}finally{this.busy=false;}}
+ async update(now,input){if(this.busy||now-this.last<100)return;this.busy=true;this.last=now;try{const response=await OnlineSession.request('poll',{code:this.code,token:this.token,input,actions:this.queue.slice(0,12)},this.diagnostics.enabled?this.diagnostics:null);this.queue=this.queue.filter(a=>a.seq>response.seq);this.error='';const mergeStart=performance.now();this.presentation.push(response.state);this.onState(response.state);this.diagnostics.merged(performance.now()-mergeStart);for(const result of response.results)this.onResult(result);}catch(e){this.error=e.message;if(this.diagnostics.enabled)this.diagnostics.errors.mark();}finally{this.busy=false;}}
 }
 export function mergeSnapshot(game,state){
  for(const key of ['enemies','animals','peers']){const old=new Map((game[key]||[]).map(e=>[e.id,e]));state[key]=(state[key]||[]).map(e=>Object.assign(old.get(e.id)||{},e));}

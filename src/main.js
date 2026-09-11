@@ -1,5 +1,5 @@
 import {OnlineSession,mergeSnapshot} from './online.js';
-import {LOOKS,appearance,characterName} from './character.js';
+import {LOOKS,appearance,characterName,randomProfile} from './character.js';
 import {installTooltips} from './tooltips.js';
 import {GameAudio} from './audio.js';
 import { applyHudLayout } from './layout.js';
@@ -193,9 +193,10 @@ function renderPanel(){
   });
 }
 
-function profileForm(){const look=appearance(game.player.appearance),labels={skin:'Кожа',hair:'Цвет волос',cloth:'Рубаха',style:'Причёска',beard:'Борода'},names={short:'Короткая',braid:'Коса',shaved:'Бритая',none:'Нет',long:'Длинная'};return '<label>Имя <input id="heroName" maxlength="20" value="'+escape(game.player.name||'Странник')+'"></label><div class="profile-options">'+Object.entries(LOOKS).map(([key,choices])=>'<label>'+labels[key]+'<select id="look-'+key+'">'+choices.map((v,i)=>'<option value="'+v+'" '+(v===look[key]?'selected':'')+'>'+(names[v]||({skin:['Светлая','Смуглая','Тёмная'],hair:['Каштановые','Светлые','Чёрные','Седые'],cloth:['Льняная','Сине-зелёная','Терракотовая','Зелёная']}[key]?.[i]))+'</option>').join('')+'</select></label>').join('')+'</div><div id="heroPreview"></div>';}
-function readProfile(){return {name:characterName($('heroName')?.value),appearance:appearance(Object.fromEntries(Object.keys(LOOKS).map(k=>[k,$('look-'+k)?.value]))) };}
-function previewProfile(){if(!$('heroPreview')||!['character','online'].includes(panelName))return;const a=readProfile().appearance;$('heroPreview').innerHTML=`<svg viewBox="0 0 120 110" width="120" height="110" aria-label="Внешность героя"><path d="M40 60h40l4 34H36Z" fill="${a.cloth}"/><path d="M42 94v14m36-14v14" stroke="#4a493c" stroke-width="12"/><path d="M39 64 30 82m51-18 9 18" stroke="${a.cloth}" stroke-width="9"/><circle cx="60" cy="40" r="20" fill="${a.skin}"/><path d="M40 34q1-27 39-5l2 8-21-8-20 12Z" fill="${a.style==='shaved'?a.skin:a.hair}"/>${a.style==='braid'?'<path d="M42 35 34 50 37 70" stroke="'+a.hair+'" stroke-width="7"/>':''}${a.beard!=='none'?'<path d="M48 49h25L60 '+(a.beard==='long'?74:62)+'Z" fill="'+a.hair+'"/>':''}<path d="M49 40h4m15 0h4" stroke="#283636" stroke-width="3"/></svg>`;}
+let draftProfile=randomProfile();
+function profileForm(){const look=appearance(draftProfile.appearance),labels={sex:'Пол',skin:'Кожа',hair:'Цвет волос',cloth:'Рубаха',style:'Причёска',beard:'Борода'},names={male:'Мужской',female:'Женский',short:'Короткая',braid:'Коса',shaved:'Бритая',none:'Нет',long:'Длинная'};return '<label>Имя <input id="heroName" maxlength="20" value="'+escape(draftProfile.name)+'"></label><div class="profile-options">'+Object.entries(LOOKS).map(([key,choices])=>'<label>'+labels[key]+'<select id="look-'+key+'">'+choices.map((v,i)=>'<option value="'+v+'" '+(v===look[key]?'selected':'')+'>'+(names[v]||({skin:['Светлая','Смуглая','Тёмная'],hair:['Каштановые','Светлые','Чёрные','Седые'],cloth:['Льняная','Сине-зелёная','Терракотовая','Зелёная']}[key]?.[i]))+'</option>').join('')+'</select></label>').join('')+'</div>'+button('Случайный герой','random-profile','secondary')+'<div id="heroPreview"></div>';}
+function readProfile(){return draftProfile={name:characterName($('heroName')?.value),appearance:appearance(Object.fromEntries(Object.keys(LOOKS).map(k=>[k,$('look-'+k)?.value]))) };}
+function previewProfile(){if(!$('heroPreview')||!['character','online'].includes(panelName))return;const a=readProfile().appearance;$('heroPreview').innerHTML=`<svg viewBox="0 0 120 110" width="120" height="110" aria-label="Внешность героя"><path d="${a.sex==='female'?'M44 60h32l-3 16 11 18H36l11-18Z':'M40 60h40l4 34H36Z'}" fill="${a.cloth}"/><path d="M42 94v14m36-14v14" stroke="#4a493c" stroke-width="12"/><path d="M39 64 30 82m51-18 9 18" stroke="${a.cloth}" stroke-width="9"/><circle cx="60" cy="40" r="${a.sex==='female'?18:20}" fill="${a.skin}"/><path d="M40 34q1-27 39-5l2 8-21-8-20 12Z" fill="${a.style==='shaved'?a.skin:a.hair}"/>${a.style==='braid'?'<path d="M42 35 34 50 37 70" stroke="'+a.hair+'" stroke-width="7"/>':''}${a.beard!=='none'?'<path d="M48 49h25L60 '+(a.beard==='long'?74:62)+'Z" fill="'+a.hair+'"/>':''}<path d="M49 40h4m15 0h4" stroke="#283636" stroke-width="3"/></svg>`;}
 async function connectRoom(create){if(networkBusy)return;networkBusy=true;try{const code=$('roomCode')?.value.trim().toUpperCase(),profile=readProfile();let stored;try{stored=JSON.parse(localStorage.getItem('midgard-room-'+code));}catch{}
  const session=await OnlineSession.request(create?'create':'join',{code,profile,token:stored?.token});
  const connection=new OnlineSession(session,state=>{if(online!==connection)return;const pvp=game.player.pvp;mergeSnapshot(game,state);pauseState();if(panelName==='pause'&&pvp!==game.player.pvp)renderPanel();},result=>{if(online!==connection)return;if(result.value==='craft'||result.value==='storage')openPanel(result.value);if(result.value?.note)openPanel('journal');if(panelName&&['bag','craft','storage'].includes(panelName))refreshPanel();if(result.error)G.tell(game,result.error);});
@@ -227,6 +228,7 @@ $('panel').addEventListener('click',event=>{
   if(!b)return;
   const [act,arg,extra]=b.dataset.action.split(':');
   audio.play('ui');
+  if(act==='random-profile'){draftProfile=randomProfile();refreshPanel();return;}
   if(act==='character-start'){game.player.appearance=readProfile().appearance;game.player.name=readProfile().name;start();return;}
   if(act==='room-create'||act==='room-join'){connectRoom(act==='room-create');return;}
   if(act==='diagnostics'){diagnosticsEnabled=!diagnosticsEnabled;online?.diagnostics.setEnabled(diagnosticsEnabled);$('onlineDiagnostics').open=diagnosticsEnabled;refreshPanel();return;}
@@ -552,7 +554,9 @@ function frame(now){
   const diagnostic=online?.diagnostics;
   diagnostic?.frame(now,game.player);
   const drawStart=diagnostic?.enabled?performance.now():0;
-  renderer.draw(game,buildType,pointer,buildEdge,preview);
+  const visualGame=online?online.presentation.draw(game,now):game;
+  renderer.draw(visualGame,buildType,pointer,buildEdge,preview);
+  diagnostic?.visualFrame(now,visualGame.player);
   if(diagnostic?.enabled)diagnostic.drawn(performance.now()-drawStart);
   if(now-diagnosticsAt>500){diagnosticsAt=now;$('onlineDiagnostics').hidden=!diagnostic?.enabled;if(diagnostic?.enabled)$('diagnosticsReadout').textContent=diagnostic.report(now);}
   if(now-lastHud>100){
