@@ -409,10 +409,10 @@ export function useItem(g,item){
   if(item==='armor'||item==='shield'){const key=item+'Equipped';p[key]=p[item+'Item']!==item||!p[key];p[item+'Item']=item;sound(g,'equip');return true;}
   if(item==='sword'||item==='bow'){p.weapon=item;p.weaponItem=item;sound(g,'equip');return true;}
   if(item==='rune'){
-    if(g.paused||p.magicCooldown>0||p.stamina<30)return false;
+    if(g.paused||p.magicCooldown>0||p.stamina<20)return false;
     const target=[...g.enemies,...pvpTargets(g)].filter(e=>!e.dead&&distance(e,p)<8&&lineClear(g,p,e)).sort((a,b)=>distance(a,p)-distance(b,p))[0];
     if(!target)return tell(g,'Нет цели для руны поблизости.'),false;
-    p.stamina-=30;p.magicCooldown=4;p.strikeAt=g.time;sound(g,'cast');hurtEnemy(g,target,45);target.stun=target.type==='boss'?.35:1.2;
+    p.stamina-=20;p.magicCooldown=4;p.strikeAt=g.time;sound(g,'cast');hurtEnemy(g,target,45);target.stun=target.type==='boss'?.35:1.2;
     g.effects.push({x:p.x,y:p.y,to:{x:target.x,y:target.y},color:'#b1edff',life:.5});return true;
   }
   if(FOODS[item])return eat(g,item);
@@ -470,6 +470,9 @@ export function interact(g) {
     const r=g.resources.find(r=>r.id===c.id);
     if(r.ready>g.time){tell(g,`Ресурс истощён. Восстановится через ${Math.ceil(r.ready-g.time)} с.`);return null;}
     if(p.harvest||p.attack>0)return null;
+    const cost=GATHER[r.type].hits===1?2:4;
+    if(p.stamina<cost)return null;
+    p.stamina-=cost;p.staminaDelay=.65;p.sprinting=false;
     if(GATHER[r.type].hits===1){finishGather(g,r);return 'gather';}
     const d=distance(p,r);if(d>.001)p.facing={x:(r.x-p.x)/d,y:(r.y-p.y)/d};
     p.harvest={id:r.id,type:r.type,started:g.time,hit:false,facing:{...p.facing}};return 'harvest';
@@ -538,7 +541,7 @@ export function storeItems(g,withdraw=false) {
   return true;
 }
 export function attack(g) {
-  const p=g.player,weapon=weaponOwned(p)?p.weapon:'hands',cost=weapon==='bow'?24:weapon==='hands'?20:28;
+  const p=g.player,weapon=weaponOwned(p)?p.weapon:'hands',cost=weapon==='bow'?16:weapon==='hands'?12:18;
   if(p.dead||p.harvest||p.attack>0||p.stamina<cost)return false;
   if(weapon==='bow'&&!p.inv.arrow)return tell(g,'Нет стрел. Создайте их у верстака.'),false;
   const range=weapon==='bow'?9:MELEE[weapon].reach+.16;
@@ -596,11 +599,11 @@ function hurtEnemy(g,e,n) {
 export function damagePlayer(g,n,enemy=null) {
   const p=g.player;
   if(p.dead)return;
-  const defended=enemy&&p.blocking&&p.stamina>=10;
-  if(enemy){p.staminaDelay=Math.max(p.staminaDelay||0,.4);if(!defended)p.stamina=Math.max(0,p.stamina-Math.max(Math.min(8,n),n*.45));}
+  const defended=enemy&&p.blocking&&p.stamina>=7;
+  if(enemy){p.staminaDelay=Math.max(p.staminaDelay||0,.4);if(!defended)p.stamina=Math.max(0,p.stamina-Math.max(Math.min(5,n),n*.3));}
   if(enemy)sound(g,defended&&usingShield(p)?'block':'hurt');
   if(defended){
-    const shield=usingShield(p);p.stamina=Math.max(0,p.stamina-(shield?Math.max(5,10-p.skills.guard*.05):15));
+    const shield=usingShield(p);p.stamina=Math.max(0,p.stamina-(shield?Math.max(3,7-p.skills.guard*.04):10));
     n*=shield?([0,.2,.16,.12][gearTier(p,'shield')])/(1+p.skills.guard*.01):.8/(1+p.skills.guard*.002);
     gainSkill(g,'guard',1);
   }
@@ -846,8 +849,8 @@ function tickPlayer(g,dt,input){
   if(p.stamina>=25)p.sprintExhausted=false;
   const moving=metric({x:input.x||0,y:input.y||0},{x:0,y:0})>.1;
   p.sprinting=input.sprint===true&&moving&&!p.blocking&&p.attack<=0&&!p.harvest&&!p.sprintExhausted&&p.stamina>0;
-  if(p.sprinting){p.stamina=Math.max(0,p.stamina-dt*24);if(p.stamina===0){p.sprinting=false;p.sprintExhausted=true;}}
-  else if(p.attack<=0&&p.staminaDelay===0)p.stamina=Math.min(100,p.stamina+dt*(SCENERY.some(s=>s.type==='spring'&&distance(s,p)<1.8)?12:p.blocking?8:6));
+  if(p.sprinting){p.stamina=Math.max(0,p.stamina-dt*16);if(p.stamina===0){p.sprinting=false;p.sprintExhausted=true;}}
+  else if(p.attack<=0&&!p.harvest&&p.staminaDelay===0)p.stamina=Math.min(100,p.stamina+dt*(SCENERY.some(s=>s.type==='spring'&&distance(s,p)<1.8)?12:p.blocking?8:6));
   p.hp=Math.min(p.hp,maxHp(g));
   if(p.food<=0)damagePlayer(g,dt*.7);
   if(p.dead)return;

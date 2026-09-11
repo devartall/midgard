@@ -19,7 +19,7 @@ test('climate warns before damage and appropriate crafted protection prevents da
 });
 test('rune opens magic after snow materials, has a cooldown and consumes energy, not the item',()=>{
  const g=G.createGame(1);g.enemies=[G.makeEnemy('draugr',G.START.x+3,G.START.y,'target')];g.animals=[];g.player.inv.rune=1;
- const e=g.enemies[0];assert.ok(G.assignQuickSlot(g,8,'rune'));assert.ok(G.useQuickSlot(g,8));assert.equal(g.player.inv.rune,1);assert.equal(g.player.stamina,70);assert.ok(e.hp<e.maxHp);assert.equal(G.useQuickSlot(g,8),false);
+ const e=g.enemies[0];assert.ok(G.assignQuickSlot(g,8,'rune'));assert.ok(G.useQuickSlot(g,8));assert.equal(g.player.inv.rune,1);assert.equal(g.player.stamina,80);assert.ok(e.hp<e.maxHp);assert.equal(G.useQuickSlot(g,8),false);
 });
 test('boss progress and distinct arena origins survive saving and dying',()=>{
  const g=G.createGame(2);g.defeated=['forest','snow'];g.bossDefeated=true;

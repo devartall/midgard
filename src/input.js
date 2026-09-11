@@ -49,3 +49,7 @@ export function bindPointer(element, { enabled = () => true, start, move, end })
   }
   return { reset: release };
 }
+// Separate start/stop thresholds prevent walk/run flicker near the edge.
+export function joystickSprint(length,wasSprinting=false){
+  return length >= (wasSprinting ? .90 : .97);
+}
