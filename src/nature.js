@@ -17,10 +17,6 @@ export function drawNature(r,o,g){
   oval(c,-19,0,5,5,'#a28351');oval(c,-19,0,3,3,'#6a5437');
   for(let i=0;i<5;i++)oval(c,-6+i*5,-5-Math.sin(t*.6+i)*.4,4,1.7,'#658153');
   stroke(c,[[4,-6],[7,-15],[11,-17]],'#6e5738',3);
- }else if(type==='runes'){
-  r.poly([[-9,2],[-8,-28],[0,-36],[10,-26],[9,3]],'#627778','#9fa591');
-  stroke(c,[[0,-28],[0,-6],[-5,-13],[4,-21],[-4,-25]],`rgba(179,218,178,${.45+.25*Math.sin(t)})`,2);
-  oval(c,-5,2,8,2,'#586b42');
  }else if(type==='spring'){
   oval(c,0,0,22,10,'#536f69');oval(c,0,-1,16,7,'#4c8d99');
   c.strokeStyle='#b3d9c199';c.lineWidth=1;for(let i=0;i<2;i++){c.beginPath();c.ellipse(0,-1,3+(t*5+i*7)%14,1+(t*2+i*3)%5,0,0,Math.PI*2);c.stroke();}

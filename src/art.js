@@ -1,7 +1,7 @@
 import {realmActor} from './realm-art.js';
 import {appearance} from './character.js';
 import {weaponOwned,gearColor} from './gear.js';
-import {heroArmPose} from './arms.js';
+import {armPose,heroArmPose} from './arms.js';
 import { edgePoints, wallEdges, corners, fromPlane } from './hex.js';
 import { swingPose, bladeSegment, aimAngle, MELEE, ENEMY_REACH } from './combat.js';
 import { bossAttackSpec, wearingArmor, usingShield, PARTS, blocked, distance } from './game.js';
@@ -173,12 +173,14 @@ function humanoid(r, actor, g, pose, player) {
   if(pose.view!=='back'){c.fillRect(2,-34,3,2);if(pose.view==='front')c.fillRect(-5,-34,3,2);}
   else{line(c,[[-4,-38],[-3,-29],[0,-25]],'#ad9269',2);line(c,[[-6,-25],[0,-16],[6,-25]],'#506959',3);}
   if (player && actor.weapon === 'bow' && weaponOwned(actor) && !actor.swing && !actor.harvest && !actor.blocking) {
-    const pull = pose.strike * 7;
-    drawArm(c,{x:7,y:-25},{x:15,y:-23},1,actor);
-    drawArm(c,{x:2,y:-27},{x:10-pull,y:-25},1,actor);
-    c.strokeStyle = gearColor(actor,'weapon','#d1ad6d'); c.lineWidth = 2; c.beginPath(); c.arc(15, -23, 15, -1.4, 1.4); c.stroke();
-    line(c, [[18, -38], [13 - pull, -23], [18, -8]], '#ddd4b0');
-    line(c, [[11 - pull, -23], [31, -23]], '#d6c399');
+    const grip={x:13,y:-23},string={x:4-pose.strike*6,y:-23};
+    // The palm grips the middle of the stave, not the empty centre of its arc.
+    const center=grip.x-12,tip=center+12*Math.cos(1.4),height=12*Math.sin(1.4);
+    c.strokeStyle = gearColor(actor,'weapon','#d1ad6d'); c.lineWidth = 2; c.beginPath(); c.arc(center, grip.y, 12, -1.4, 1.4); c.stroke();
+    line(c, [[tip,grip.y-height],[string.x,string.y],[tip,grip.y+height]], '#ddd4b0');
+    line(c, [[string.x,string.y],[grip.x+6,grip.y]], '#d6c399');
+    drawArm(c,{x:-6,y:-25},string,1,actor,true);
+    drawArm(c,{x:7,y:-25},grip,1,actor,true);
   } else if (!player) {
     c.save(); c.translate(8, -25);
     const angle = pose.windup ? -.9 - pose.windup * 1.4 : pose.strike ? -1.8 + (1 - pose.strike) * 4 : .15 + pose.step * .25;
@@ -282,8 +284,8 @@ export function drawActor(r, actor, g, player, pose) {
   c.restore();
 }
 
-function drawArm(c,shoulder,target,side,actor){
- const arm=heroArmPose(shoulder,target,side),cloth=wearingArmor(actor)?gearColor(actor,'armor','#95734e'):appearance(actor.appearance).cloth;
+function drawArm(c,shoulder,target,side,actor,bow=false){
+ const arm=bow?armPose(shoulder,target,side,7,7):heroArmPose(shoulder,target,side),cloth=wearingArmor(actor)?gearColor(actor,'armor','#95734e'):appearance(actor.appearance).cloth;
  line(c,[[shoulder.x,shoulder.y],[arm.elbow.x,arm.elbow.y]],cloth,6);
  line(c,[[arm.elbow.x,arm.elbow.y],[arm.hand.x,arm.hand.y]],appearance(actor.appearance).skin,4);
  oval(c,arm.hand.x,arm.hand.y,2.8,3,appearance(actor.appearance).skin);return arm;

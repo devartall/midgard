@@ -44,5 +44,6 @@ export const SCENERY=[];
 for(let x=8;x<SIZE-5;x+=5)for(let y=8;y<SIZE-5;y+=5){
  if(!['grass','snow','ash'].includes(terrainBase(x,y))||isTrail(x,y)||metric({x,y},START)<5||metric({x,y},BOSS_POS)<8||hash(x+99,y)>.68)continue;
  const type=['fern','mushrooms','log','runes','spring'][Math.floor(hash(x,y+80)*5)];
+ if(type==='runes')continue; // Keep the remaining scenery and resource positions stable.
  SCENERY.push({id:`scene${x}_${y}`,type,x,y,phase:hash(x+11,y)*Math.PI*2});
 }

@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import * as G from '../src/game.js';
 import {GameAudio} from '../src/audio.js';
 const advance=(g,seconds)=>{for(let t=0;t<seconds;t+=.05)G.tick(g,.05);};
-test('expanded island has twice the former land area, five scenery types and seeded packs of 1–3',()=>{
+test('expanded island has twice the former land area, four scenery types and seeded packs of 1–3',()=>{
  let land=0;for(let x=0;x<G.SIZE;x++)for(let y=0;y<G.SIZE;y++)if(G.walkable(x,y)&&G.biomeAt(x,y)==='forest')land++;
  assert.ok(land>3407*1.85&&land<3407*2.15);
- assert.equal(new Set(G.SCENERY.map(o=>o.type)).size,5);
+ assert.deepEqual([...new Set(G.SCENERY.map(o=>o.type))].sort(),['fern','log','mushrooms','spring']);
  const sizes=new Set();
  for(let seed=1;seed<=12;seed++){
   const g=G.createGame(seed);for(let pack=0;pack<G.CAMPS.length;pack++){const count=g.enemies.filter(e=>e.pack===pack).length;assert.ok(count>=1&&count<=3);sizes.add(count);}
