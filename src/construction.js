@@ -16,10 +16,12 @@ export function placementPlan(g,type,start,end,edge=null) {
     for(const p of floors)for(let i=0;i<6;i++){
       if(edge!==null&&i!==edge)continue;
       const candidate={type,x:p.x,y:p.y,edge:i};
-      if(g.parts.some(w=>['wall','door','reinforce'].includes(w.type)&&sameEdge(w,candidate)))continue;
+      const occupied=g.parts.find(w=>['wall','door','reinforce'].includes(w.type)&&sameEdge(w,candidate));
+      if(occupied&&(occupied.type===type||!Number.isInteger(occupied.edge)))continue;
+      if(occupied)candidate.replaces=occupied.type;
       const [dx,dy]=HEX_DIRS[i];
       // Prefer outer edges, but allow interior partitions when explicitly oriented.
-      if(edge===null&&floors.some(f=>f.x===p.x+dx&&f.y===p.y+dy))continue;
+      if(edge===null&&!occupied&&floors.some(f=>f.x===p.x+dx&&f.y===p.y+dy))continue;
       const d=pointSegment(end,...edgePoints(p,i));if(d<1.25)candidates.push({...candidate,d});
     }
     candidates.sort((a,b)=>a.d-b.d);return candidates.slice(0,1);
@@ -32,4 +34,9 @@ export function placementPlan(g,type,start,end,edge=null) {
   }
   return result;
 }
-export function planCost(plan,parts){const cost={};for(const p of plan)for(const[k,n]of Object.entries(parts[p.type].cost))cost[k]=(cost[k]||0)+n;return cost;}
+export function planCost(plan,parts){
+ const cost={};for(const p of plan){
+  for(const[k,n]of Object.entries(parts[p.type].cost))cost[k]=(cost[k]||0)+n;
+  if(p.replaces)for(const[k,n]of Object.entries(parts[p.replaces].cost))cost[k]=(cost[k]||0)-n;
+ }return Object.fromEntries(Object.entries(cost).filter(([,n])=>n!==0));
+}

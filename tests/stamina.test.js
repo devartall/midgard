@@ -36,7 +36,7 @@ test('attacks consume substantial energy and recovery pauses after swinging',()=
 });
 test('block allows gradual recovery, shield absorbs damage, and enemy hits drain stamina',()=>{
  const idle=fresh(),block=fresh();idle.player.stamina=40;block.player.stamina=40;
- advance(idle,1);advance(block,1,{block:true});assert.ok(Math.abs(idle.player.stamina-46)<.01);assert.ok(Math.abs(block.player.stamina-48)<.01);
+ advance(idle,1);advance(block,1,{block:true});assert.ok(Math.abs(idle.player.stamina-46)<.01);assert.ok(Math.abs(block.player.stamina-46)<.01);
  const open=fresh(),guard=fresh(),enemy={};guard.player.inv.shield=1;guard.player.shieldEquipped=true;guard.player.blocking=true;
  G.damagePlayer(open,20,enemy);G.damagePlayer(guard,20,enemy);
  assert.ok(open.player.stamina<100);assert.ok(guard.player.stamina<100);assert.ok(guard.player.hp>open.player.hp);

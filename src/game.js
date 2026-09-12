@@ -25,7 +25,7 @@ export const PARTS = {
   door:{
     name:'Дверь', cost:{
       wood:4
-    }, hp:140, value:0, solid:true, desc:'Открывайте рядом кнопкой действия.'
+    }, hp:140, value:0, solid:true, desc:'Поставьте прямо на стену с зачётом материалов. Открывайте кнопкой действия.'
   },
   fire:{
     name:'Очаг', cost:{
@@ -111,7 +111,7 @@ export const FOODS = {
     sat:2700,buff:900,hp:40,regen:.3
   }
 };
-export const GATHER={crystal:{hits:5,label:'Добывать',yield:3},obsidian:{hits:6,label:'Добывать',yield:3},wood:{hits:4,label:'Рубить',yield:4},stone:{hits:5,label:'Добывать',yield:3},berry:{hits:1,label:'Собрать',yield:3},herb:{hits:1,label:'Срезать',yield:3},mushroom:{hits:1,label:'Собрать',yield:3}};
+export const GATHER={crystal:{hits:5,label:'Добывать',yield:3},obsidian:{hits:6,label:'Добывать',yield:3},wood:{hits:4,label:'Рубить',yield:4},stone:{hits:5,label:'Добывать',yield:4},berry:{hits:1,label:'Собрать',yield:3},herb:{hits:1,label:'Срезать',yield:3},mushroom:{hits:1,label:'Собрать',yield:3}};
 export const GATHER_RANGE=1.65;
 export const SKILLS = {
   sword:'Меч', bow:'Лук', guard:'Защита'
@@ -216,6 +216,10 @@ export function sound(g,type,x=g.player.x,y=g.player.y){
   if(!g.sounds)g.sounds=[];g.sounds.push({type,x,y});if(g.sounds.length>48)g.sounds.shift();
 }
 export function makeAnimal(type,x,y,id){return {id,type,x,y,origin:{x,y},hp:type==='deer'?48:18,maxHp:type==='deer'?48:18,dead:false,respawnAt:0};}
+export function actionFeedback(g,text,energy=false){
+  const p=g.player;if(p.feedback?.text===text&&g.time-p.feedback.at<1)return;
+  p.feedback={text,energy,at:g.time};tell(g,text);
+}
 export function tell(g,text) {
   g.events.push({
     id:g.nextId++,text,time:g.time
@@ -322,14 +326,20 @@ export function build(g,type,x,y,edge=0) {
   })>7)return tell(g,'Подойдите ближе к месту строительства.'),false;
   if(!walkable(x,y,g)||(d.solid?(wallDistance({x,y,edge},g.player)<.2||g.enemies.some(e=>!e.dead&&wallDistance({x,y,edge},e)<.2)):g.enemies.some(e=>!e.dead&&distance(e,{x,y})<.5)))return tell(g,'Место занято.'),false;
   const candidate={x,y,edge};
+  const existing=d.solid?g.parts.find(p=>PARTS[p.type].solid&&sameEdge(p,candidate)):null;
+  const replacement=existing&&Number.isInteger(existing.edge)&&existing.type!==type&&['wall','door','reinforce'].includes(type)?existing:null;
+  if(replacement&&blocked(g,replacement))return tell(g,'Сначала отгоните монстров от стены.'),false;
   if(d.solid&&(!Number.isInteger(edge)||edge<0||edge>5))return false;
   const same=g.parts.filter(p=>p.x===x&&p.y===y);
-  if(d.solid?g.parts.some(p=>PARTS[p.type].solid&&sameEdge(p,candidate)):same.some(p=>type==='floor'?p.type==='floor':p.type!=='floor'&&!PARTS[p.type].solid))return tell(g,'Эта клетка уже занята.'),false;
+  if(d.solid?existing&&!replacement:same.some(p=>type==='floor'?p.type==='floor':p.type!=='floor'&&!PARTS[p.type].solid))return tell(g,'Эта клетка уже занята.'),false;
   if(type!=='floor'&&!same.some(p=>p.type==='floor'))return tell(g,'Сначала положите пол.'),false;
-  if(!afford(g.player.inv,d.cost))return tell(g,'Не хватает материалов.'),false;
-  spend(g.player.inv,d.cost);
+  const cost={...d.cost};
+  if(replacement)for(const[k,n]of Object.entries(PARTS[replacement.type].cost))cost[k]=(cost[k]||0)-n;
+  if(!afford(g.player.inv,cost))return tell(g,'Не хватает материалов.'),false;
+  spend(g.player.inv,cost);
+  if(replacement)g.parts=g.parts.filter(p=>p!==replacement);
   g.parts.push({
-    id:g.nextId++,type,x,y,...(d.solid?{edge}:{}),hp:d.hp,open:false
+    id:g.nextId++,type,x,y,...(d.solid?{edge}:{}),hp:replacement?Math.max(0,replacement.hp/PARTS[replacement.type].hp*d.hp):d.hp,open:false
   });
   for(const r of g.resources)if(r.x===x&&r.y===y)r.ready=g.time+300;
   g.effects.push({
@@ -390,13 +400,16 @@ export function craft(g,item) {
 export function eat(g,item) {
   const f=FOODS[item],p=g.player;
   if(!f||!p.inv[item]||p.dead)return false;
+  const improvesFood=f.sat-p.food>=30||p.food<=0;
+  const improvesBuff=f.buff>0&&(p.buff<=0||f.hp>p.foodBonus||(f.hp===p.foodBonus&&f.buff-p.buff>=30));
+  if(!improvesFood&&!improvesBuff)return actionFeedback(g,'Пища пока не улучшит сытость или бонус.'),false;
   add(p.inv,item,-1);sound(g,'eat');
   p.food=Math.max(p.food,f.sat);
-  if(f.buff){
+  if(improvesBuff){
     p.buff=f.buff;
     p.foodBonus=f.hp;
   }
-  tell(g,`${ITEMS[item]}: сытость ${Math.ceil(p.food/60)} мин${f.buff?`, бонус здоровья ${f.buff/60} мин`:''}.`);
+  tell(g,`${ITEMS[item]}: сытость ${Math.ceil(p.food/60)} мин${p.buff>0?`, +${p.foodBonus} здоровья ещё ${Math.ceil(p.buff/60)} мин`:''}.`);
   return true;
 }
 export const wearingArmor=p=>!!p.inv[p.armorItem||'armor']&&p.armorEquipped!==false;
@@ -404,15 +417,17 @@ export const carryingShield=p=>!!p.inv[p.shieldItem||'shield']&&p.shieldEquipped
 export const usingShield=p=>carryingShield(p)&&p.weapon!=='bow';
 export const usableItem=item=>Object.hasOwn(GEAR,item)||['sword','bow','potion','rune','armor','shield'].includes(item)||Object.hasOwn(FOODS,item);
 export function useItem(g,item){
-  const p=g.player;if(p.dead||!p.inv[item])return false;
+  const p=g.player;if(p.dead)return false;if(!p.inv[item])return actionFeedback(g,item?`${ITEMS[item]||'Предмет'} закончился или отсутствует в сумке.`:'Ячейка пояса пуста.'),false;
   if(GEAR[item]){const gear=GEAR[item],key=gear.slot+'Item';if(gear.slot==='weapon'){p.weapon=gear.base;p.weaponItem=item;}else{p[gear.slot+'Equipped']=p[key]!==item||!p[gear.slot+'Equipped'];p[key]=item;}sound(g,'equip');return true;}
   if(item==='armor'||item==='shield'){const key=item+'Equipped';p[key]=p[item+'Item']!==item||!p[key];p[item+'Item']=item;sound(g,'equip');return true;}
   if(item==='sword'||item==='bow'){p.weapon=item;p.weaponItem=item;sound(g,'equip');return true;}
   if(item==='rune'){
-    if(g.paused||p.magicCooldown>0||p.stamina<20)return false;
+    if(g.paused)return false;
+    if(p.magicCooldown>0)return actionFeedback(g,`Руна восстановится через ${Math.ceil(p.magicCooldown)} с.`),false;
+    if(p.stamina<20)return actionFeedback(g,'Нужно 20 энергии для руны.',true),false;
     const target=[...g.enemies,...pvpTargets(g)].filter(e=>!e.dead&&distance(e,p)<8&&lineClear(g,p,e)).sort((a,b)=>distance(a,p)-distance(b,p))[0];
     if(!target)return tell(g,'Нет цели для руны поблизости.'),false;
-    p.stamina-=20;p.magicCooldown=4;p.strikeAt=g.time;sound(g,'cast');hurtEnemy(g,target,45);target.stun=target.type==='boss'?.35:1.2;
+    p.stamina-=20;p.magicCooldown=4;p.strikeAt=g.time;sound(g,'cast');hurtEnemy(g,target,45,false);target.stun=target.type==='boss'?.35:1.2;
     g.effects.push({x:p.x,y:p.y,to:{x:target.x,y:target.y},color:'#b1edff',life:.5});return true;
   }
   if(FOODS[item])return eat(g,item);
@@ -471,7 +486,7 @@ export function interact(g) {
     if(r.ready>g.time){tell(g,`Ресурс истощён. Восстановится через ${Math.ceil(r.ready-g.time)} с.`);return null;}
     if(p.harvest||p.attack>0)return null;
     const cost=GATHER[r.type].hits===1?2:4;
-    if(p.stamina<cost)return null;
+    if(p.stamina<cost)return actionFeedback(g,`Нужно ${cost} энергии для добычи.`,true),null;
     p.stamina-=cost;p.staminaDelay=.65;p.sprinting=false;
     if(GATHER[r.type].hits===1){finishGather(g,r);return 'gather';}
     const d=distance(p,r);if(d>.001)p.facing={x:(r.x-p.x)/d,y:(r.y-p.y)/d};
@@ -532,8 +547,7 @@ export function storeItems(g,withdraw=false) {
   if(!station(g,'chest'))return tell(g,'Подойдите к свободному сундуку.'),false;
   const src=withdraw?g.storage:g.player.inv,dst=withdraw?g.player.inv:g.storage;
   for(const k of Object.keys(src)){
-    if(!withdraw&&Object.hasOwn(GEAR,k))continue;
-    if(!withdraw&&['sword','bow','armor','shield','arrow'].includes(k))continue;
+    if(!withdraw&&!['wood','stone','berry','meat','hide','resin','herb','mushroom','crystal','obsidian','frostHide','emberCore','roast','stew'].includes(k))continue;
     add(dst,k,src[k]);
     delete src[k];
   }
@@ -542,8 +556,9 @@ export function storeItems(g,withdraw=false) {
 }
 export function attack(g) {
   const p=g.player,weapon=weaponOwned(p)?p.weapon:'hands',cost=weapon==='bow'?16:weapon==='hands'?12:18;
-  if(p.dead||p.harvest||p.attack>0||p.stamina<cost)return false;
-  if(weapon==='bow'&&!p.inv.arrow)return tell(g,'Нет стрел. Создайте их у верстака.'),false;
+  if(p.dead||p.harvest||p.attack>0)return false;
+  if(p.stamina<cost)return actionFeedback(g,`Нужно ${cost} энергии для атаки.`,true),false;
+  if(weapon==='bow'&&!p.inv.arrow)return actionFeedback(g,'Нет стрел. Создайте их у верстака.'),false;
   const range=weapon==='bow'?9:MELEE[weapon].reach+.16;
   const target=[...g.enemies,...g.animals,...pvpTargets(g)].filter(e=>!e.dead&&distance(e,p)<=range+(e.type==='boss'?.85:0)&&lineClear(g,p,e)).sort((a,b)=>distance(a,p)-distance(b,p))[0];
   if(target&&distance(p,target)>.001)p.facing={x:(target.x-p.x)/distance(p,target),y:(target.y-p.y)/distance(p,target)};
@@ -572,10 +587,10 @@ function lineClear(g,a,b) {
 }
 export function claimBossReward(p,biome){p.claimedBossRewards||=[];if(!p.claimedBossRewards.includes(biome)){p.claimedBossRewards.push(biome);add(p.inv,biome==='snow'?'frostHeart':biome==='fire'?'flameHeart':'trophy',1);}}
 export function pvpTargets(g){return (g.players||[]).filter(p=>p!==g.player&&!p.dead&&p.pvp&&g.player.pvp);}
-function hurtEnemy(g,e,n) {
- if(g.players?.includes(e)){if(!pvpTargets(g).includes(e))return;const attacker=g.player;g.player=e;damagePlayer(g,n*weaponPower(attacker),attacker);g.player=attacker;return;}
+function hurtEnemy(g,e,n,weapon=true) {
+ if(g.players?.includes(e)){if(!pvpTargets(g).includes(e))return;const attacker=g.player;g.player=e;damagePlayer(g,n*(weapon?weaponPower(attacker):1),attacker);g.player=attacker;return;}
 
-  n*=weaponPower(g.player)*(g.player.inv.emberSeal?1.3:1);if(e.vulnerableUntil>g.time)n*=1.7;e.hp-=n;sound(g,'impact',e.x,e.y);
+  n*=weapon?weaponPower(g.player)*(g.player.inv.emberSeal?1.3:1):1;if(e.vulnerableUntil>g.time)n*=1.7;e.hp-=n;sound(g,'impact',e.x,e.y);
   g.effects.push({
     x:e.x,y:e.y,text:`−${Math.round(n)}`,color:'#f7ca83',life:.8
   });
@@ -819,7 +834,7 @@ export function statusEffects(g){
   if(p.food<=0)result.push({id:'hunger',icon:'meat',name:'Голод: здоровье убывает',kind:'debuff'});
   if(p.stamina<20)result.push({id:'tired',icon:'energy',name:'Мало выносливости',kind:'debuff'});
   if(wearingArmor(p)&&p.durability<=0)result.push({id:'broken',icon:'armor',name:'Броня сломана',kind:'debuff'});
-  if(p.slow>0)result.push({id:'rooted',icon:'root',name:'Корни: движение замедлено',kind:'debuff',seconds:p.slow});
+  if(p.slow>0)result.push({id:'rooted',icon:'root',name:biome==='snow'?'Мороз: движение замедлено':biome==='fire'?'Движение замедлено':'Корни: движение замедлено',kind:'debuff',seconds:p.slow});
   if(SCENERY.some(s=>s.type==='spring'&&distance(s,p)<1.8))result.push({id:'spring',icon:'water',name:'Родник: быстрое восстановление энергии',kind:'buff'});
   if(station(g,'fire')&&sheltered(g)&&!blocked(g,p)&&p.food>0)result.push({id:'rest',icon:'fire',name:'Отдых у очага: восстановление здоровья',kind:'buff'});
   return result;
@@ -850,7 +865,7 @@ function tickPlayer(g,dt,input){
   const moving=metric({x:input.x||0,y:input.y||0},{x:0,y:0})>.1;
   p.sprinting=input.sprint===true&&moving&&!p.blocking&&p.attack<=0&&!p.harvest&&!p.sprintExhausted&&p.stamina>0;
   if(p.sprinting){p.stamina=Math.max(0,p.stamina-dt*16);if(p.stamina===0){p.sprinting=false;p.sprintExhausted=true;}}
-  else if(p.attack<=0&&!p.harvest&&p.staminaDelay===0)p.stamina=Math.min(100,p.stamina+dt*(SCENERY.some(s=>s.type==='spring'&&distance(s,p)<1.8)?12:p.blocking?8:6));
+  else if(p.attack<=0&&!p.harvest&&p.staminaDelay===0)p.stamina=Math.min(100,p.stamina+dt*(SCENERY.some(s=>s.type==='spring'&&distance(s,p)<1.8)?12:6));
   p.hp=Math.min(p.hp,maxHp(g));
   if(p.food<=0)damagePlayer(g,dt*.7);
   if(p.dead)return;

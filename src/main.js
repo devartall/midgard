@@ -1,3 +1,4 @@
+import {RECIPE_ORDER,recipeStatus,nextObjective,itemSummary} from './usability.js';
 import {OnlineSession,mergeSnapshot} from './online.js';
 import {LOOKS,appearance,characterName,randomProfile} from './character.js';
 import {installTooltips} from './tooltips.js';
@@ -7,7 +8,7 @@ import { gameKey } from './keys.js';
 import { icon } from './icons.js';
 import { placementPlan, planCost } from './construction.js';
 import { hexRound, fromPlane, wallDistance } from './hex.js';
-import { bindPointer, installGestureGuard, joystickSprint } from './input.js';
+import { bindPointer, installGestureGuard, joystickSprint, joystickVector, movementVector } from './input.js';
 import * as Sim from './game.js';
 const G={...Sim};
 let online=null,networkBusy=false,diagnosticsAt=0;
@@ -66,7 +67,7 @@ function escape(s){
   [c]));
 }
 function costText(cost){
-  return Object.entries(cost).map(([k,v])=>`<span class="resource-chip" title="${G.ITEMS[k]}">${icon(k)} ${v}</span>`).join(' · ');
+  return Object.entries(cost).map(([k,v])=>`<span class="resource-chip" title="${G.ITEMS[k]}">${icon(k)} ${v<0?'вернуть '+(-v):v}</span>`).join(' · ');
 }
 function stock(inv=game.player.inv){
   return Object.entries(inv).filter(([,v])=>v>0).map(([k,v])=>`<span class="resource-chip" title="${G.ITEMS[k]||k}">${icon(k)} ${v}</span>`).join(' · ')||'Пока пусто';
@@ -77,12 +78,13 @@ function button(text,action,cls=''){
 }
 function inventoryGrid(inv,selectable=false){
   const entries=Object.entries(inv).filter(([,n])=>n>0);
-  return '<div class="inventory-grid">'+entries.map(([k,n])=>`<button class="item-slot ${selectedItem===k&&selectable?'selected':''} ${(G.weaponItem(game.player)===k||k===(game.player.armorItem||'armor')&&G.wearingArmor(game.player)||k===(game.player.shieldItem||'shield')&&G.carryingShield(game.player))?'equipped':''}" ${selectable?`data-action="select:${k}"`:'disabled'} title="${G.ITEMS[k]}" aria-label="${G.ITEMS[k]}, ${n}">${icon(k)}<span>${G.ITEMS[k]}</span><b>${n}</b>${game.player.weapon===k?'<i>В руках</i>':(k==='armor'&&G.wearingArmor(game.player)||k==='shield'&&G.carryingShield(game.player))?'<i>Надето</i>':''}</button>`).join('')+Array.from({length:Math.max(0,24-entries.length)},()=>'<div class="item-slot empty" aria-hidden="true">·</div>').join('')+'</div>';
+  if(!entries.length&&!selectable)return '<p class="muted">Пока пусто.</p>';
+  return '<div class="inventory-grid">'+entries.map(([k,n])=>`<button class="item-slot ${selectedItem===k&&selectable?'selected':''} ${(G.weaponItem(game.player)===k||k===(game.player.armorItem||'armor')&&G.wearingArmor(game.player)||k===(game.player.shieldItem||'shield')&&G.carryingShield(game.player))?'equipped':''}" ${selectable?`data-action="select:${k}"`:'disabled'} title="${G.ITEMS[k]}" aria-label="${G.ITEMS[k]}, ${n}">${icon(k)}<span>${G.ITEMS[k]}</span><b>${n}</b>${G.weaponItem(game.player)===k?'<i>В руках</i>':(k===(game.player.armorItem||'armor')&&G.wearingArmor(game.player)||k===(game.player.shieldItem||'shield')&&G.carryingShield(game.player))?'<i>Надето</i>':''}</button>`).join('')+Array.from({length:selectable?Math.max(6,Math.ceil(entries.length/6)*6)-entries.length:0},()=>'<div class="item-slot empty" aria-hidden="true">·</div>').join('')+'</div>';
 }
 function itemDetails(k){
   if(!k||!game.player.inv[k])return '<aside class="item-detail"><div class="detail-emblem">ᛉ</div><h3>Снаряжение странника</h3><p>Выберите предмет, чтобы узнать его свойства, использовать или назначить на пояс.</p><small>Броню и щит нужно надеть в сумке или через пояс.</small></aside>';
   const f=G.FOODS[k],usable=G.usableItem(k);
-  return `<aside class="item-detail">${icon(k,'detail-icon')}<small>${f?'ПРИПАСЫ':k==='potion'?'АЛХИМИЯ':usable?'ОРУЖИЕ':'МАТЕРИАЛЫ'}</small><h3>${G.ITEMS[k]}</h3><p>${f?`Сытость: ${f.sat/60} мин. Чем выше сытость, тем быстрее восстанавливается здоровье.${f.buff?` +${f.hp} к максимуму здоровья и +${f.regen||0} HP/с регенерации на ${f.buff/60} мин.`:''}`:k==='potion'?'Восстанавливает 40 здоровья. Между применениями — 20 секунд. Варится у очага из 2 ягод и 2 лечебных трав.':k==='rune'?'Ледяная вспышка: 45 урона и оглушение ближайшей цели. 20 энергии, перерыв 4 секунды. Назначьте на пояс для боя.':k==='furCloak'?'Защищает от мороза, пока находится в сумке.':k==='fireCloak'?'Защищает от жара, пока находится в сумке.':k==='emberSeal'?'Усиливает урон оружия на 30%, пока находится в сумке.':k==='sword'?'Направленный взмах. Подойдите на длину клинка.':k==='bow'?'Дальний бой. Каждый выстрел расходует стрелу.':k==='shield'?'Надетый щит надёжно блокирует удары. Лук занимает обе руки: с ним блок выполняется руками.':G.GEAR[k]?`Снаряжение ступени ${G.GEAR[k].tier}. ${G.GEAR[k].slot==='weapon'?'Повышает урон оружия.':'Повышает защиту.'} Требует ресурсов новых земель.`:k==='armor'?`Защищает от ударов. Прочность: ${Math.floor(game.player.durability)}%.`:'Пригодится для строительства и ремесла.'}</p>${usable?button(f?'Съесть':k==='potion'?'Выпить':G.GEAR[k]?'Экипировать':['armor','shield'].includes(k)?(game.player[k+'Equipped']?'Снять':'Надеть'):'Взять в руки',`use:${k}`,'primary'):''}${k==='armor'?button('Ремонт · 2 шкуры','armor-repair'):''}${usable?'<h4>Назначить на пояс</h4><div class="slot-assign">'+Array.from({length:9},(_,i)=>button(i+1,`assign:${k}:${i}`,game.player.quickbar[i]===k?'selected':'')).join('')+'</div><small>Цифры 1–9 или касание ячейки в игре.</small>':''}</aside>`;
+  return `<aside class="item-detail">${icon(k,'detail-icon')}<small>${f?'ПРИПАСЫ':k==='potion'?'АЛХИМИЯ':['armor','shield'].includes(k)||['armor','shield'].includes(G.GEAR[k]?.slot)?'ЗАЩИТА':usable?'СНАРЯЖЕНИЕ':'МАТЕРИАЛЫ'}</small><h3>${G.ITEMS[k]}</h3><p>${escape(itemSummary(game,k))}</p>${usable?button(f?'Съесть':k==='potion'?'Выпить':G.GEAR[k]?(G.GEAR[k].slot==='weapon'?'Взять в руки':game.player[G.GEAR[k].slot+'Item']===k&&game.player[G.GEAR[k].slot+'Equipped']?'Снять':'Надеть'):['armor','shield'].includes(k)?((game.player[k+'Item']||k)===k&&game.player[k+'Equipped']?'Снять':'Надеть'):'Взять в руки',`use:${k}`,'primary'):''}${(k==='armor'||G.GEAR[k]?.slot==='armor')?button('Ремонт · 2 шкуры','armor-repair'):''}${usable?'<h4>Назначить на пояс</h4><div class="slot-assign">'+Array.from({length:9},(_,i)=>button(i+1,`assign:${k}:${i}`,game.player.quickbar[i]===k?'selected':'')).join('')+'</div><small>Цифры 1–9 или касание ячейки в игре.</small>':''}</aside>`;
 }
 function renderQuickbar(){
   const p=game.player,signature=JSON.stringify([p.quickbar,p.inv,p.weapon,p.weaponItem,p.armorItem,p.shieldItem,p.armorEquipped,p.shieldEquipped,Math.ceil(p.potionCooldown)]);if(signature===barSignature)return;barSignature=signature;
@@ -133,12 +135,12 @@ function renderPanel(){
     html=title('Сумка странника')+'<div class="inventory-layout">'+inventoryGrid(p.inv,true)+itemDetails(selectedItem)+'</div><p class="muted">Вещи остаются на месте гибели. Пояс — быстрый доступ к предметам из сумки.</p>';
   }
   else if(panelName==='build'){
-    html=title('Ваш дом')+`<p>Один участок, свободная планировка. Пол → стены с дверью → очаг и оборудование. Постройка защищает, когда контур стен закрыт.</p><div class="stock">${stock()}</div>`;
+    html=title('Ваш дом')+`<p>Один участок, свободная планировка. Пол → стены → дверь прямо на стене → очаг и оборудование. Постройка защищает, когда контур стен закрыт.</p><div class="stock">${stock()}</div>`;
     if(!game.home)html+=`<div class="notice">Отметьте участок там, где стоите. Гексагональный участок радиусом 5 клеток. Стоимость: 4 дерева. Перенос в лесной версии недоступен.</div><br>${button('Отметить участок','claim','primary')}`;
-    else html+=`<div class="notice">Сила дома: ${G.homeValue(game)}. Разрушители приходят от 28. Пол, обычные стены и украшения не усиливают набеги.</div><br><div class="cards">`+Object.entries(G.PARTS).map(([k,d])=>`<article class="card"><div class="recipe-icon">${icon(k)}</div><h3>${d.name}</h3><p>${d.desc}</p><small>${costText(d.cost)}</small>${button('Разместить',`place:${k}`,G.afford(p.inv,d.cost)?'available':'')}</article>`).join('')+`</div><hr><div class="row">${button('Ремонтировать рядом · 2 дерева','repair','secondary')}${button('Разобрать → вернуть все материалы','demolish','secondary')}</div>`;
+    else html+=`<div class="notice">Сила дома: ${G.homeValue(game)}. Разрушители приходят от 28. Пол, обычные стены и украшения не усиливают набеги.</div><br><div class="cards">`+Object.entries(G.PARTS).map(([k,d])=>`<article class="card"><div class="recipe-icon">${icon(k)}</div><h3>${d.name}</h3><p>${d.desc}</p>${G.homeValue(game)<28&&G.homeValue(game)+d.value>=28?'<p class="notice">После постройки возможен разрушитель.</p>':''}<small>${costText(d.cost)}</small>${button('Разместить',`place:${k}`,G.afford(p.inv,d.cost)?'available':'')}</article>`).join('')+`</div><hr><div class="row">${button('Ремонтировать рядом · 2 дерева','repair','secondary')}${button('Разобрать → вернуть все материалы','demolish','secondary')}</div>`;
   }
   else if(panelName==='craft'){
-    html=title('Мастерская')+`<p>Куйте оружие, готовьте еду и варите зелья у оборудования дома. Если рядом монстры, сначала освободите рабочее место.</p><div class="stock">${stock()}</div><div class="cards">`+Object.entries(G.RECIPES).map(([k,r])=>`<article class="card"><div class="recipe-icon">${icon(k)}</div><h3>${G.ITEMS[k]} ${r.count>1?`×${r.count}`:''}</h3><p>${G.PARTS[r.station].name} ${G.station(game,r.station)?'· рядом':'· подойдите ближе'}</p><small>${costText(r.cost)}</small>${button('Создать',`craft:${k}`,G.afford(p.inv,r.cost)&&G.station(game,r.station)?'available':'')}</article>`).join('')+'</div>';
+    html=title('Мастерская')+`<p>Куйте оружие, готовьте еду и варите зелья у оборудования дома. Если рядом монстры, сначала освободите рабочее место.</p><div class="stock">${stock()}</div><div class="cards">`+RECIPE_ORDER.map(k=>[k,G.RECIPES[k]]).map(([k,r])=>`<article class="card"><div class="recipe-icon">${icon(k)}</div><h3>${G.ITEMS[k]} ${r.count>1?`×${r.count}`:''}</h3><p>${G.PARTS[r.station].name} ${G.station(game,r.station)?'· рядом':'· подойдите ближе'}</p><small>${costText(r.cost)}</small>${button(escape(recipeStatus(game,k).text),`craft:${k}`,recipeStatus(game,k).ready?'available':'unavailable')}</article>`).join('')+'</div>';
   }
   else if(panelName==='skills'){
     html=title('Навыки')+`<p>Навыки растут от действий. Выбранное направление получает полный опыт, остальные — 20%. Общий предел — 150 очков: сосредоточение выгоднее.</p><div class="cards">`+Object.entries(G.SKILLS).map(([k,name])=>`<article class="card"><div class="recipe-icon">${icon(k==='guard'?'guard':k)}</div><h3>${name} · ${p.skills[k].toFixed(1)}</h3><div class="skillbar"><i style="width:${p.skills[k]}%"></i></div><p>${k==='guard'?'Улучшает защиту и расход выносливости при блоке. Растёт в столкновениях.':'Каждое очко увеличивает урон оружия на 1,6%.'}</p>${button(p.focus===k?'Основное направление':'Сосредоточиться',`focus:${k}`)}</article>`).join('')+`</div><hr><h3>Перераспределение у верстака</h3><p>Переносит до 10 очков с потерей 20%. Исходный навык ослабевает. Смена направления обучения сама по себе не переносит опыт.</p><div class="row"><label>Из <select id="fromSkill">${Object.entries(G.SKILLS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></label><label>В <select id="toSkill">${Object.entries(G.SKILLS).map(([k,v])=>`<option value="${k}" ${k==='bow'?'selected':''}>${v}</option>`).join('')}</select></label>${button('Перенести с потерей','transfer','danger')}</div>`;
@@ -153,7 +155,7 @@ function renderPanel(){
     html=title('Карта Мидгарда')+`<div class="map-controls">${button('−','map-zoom:out')}${button('+','map-zoom:in')}${button('Весь мир','map-zoom:reset')}<span id="mapScale"></span></div><div id="mapPlayers" class="map-players">${[game.player,...(game.peers||[])].map(p=>button(escape(p.name||'Странник')+(p===game.player?' (вы)':''),'map-player:'+p.id)).join('')}</div>`+`<canvas id="mapCanvas" class="map-canvas" aria-label="Карта мира и игроков"></canvas><p class="muted">Светлая точка — вы · голубые — друзья (нажмите имя, чтобы найти) · золотая — дом · красная — древний круг · сиреневая — вещи. Голубое — озёра, светло-серое — непроходимые скалы, охристые кольца — логова.</p>`;
   }
   else if(panelName==='death'){
-    html=`<div class="eyebrow">ПУТЬ НЕ ЗАКОНЧЕН</div><h2 id="panelTitle">Лес забрал своё</h2><p>Ваши вещи остались на месте гибели. Навыки и запасы дома сохранены. Хранитель восстановил здоровье.</p><div class="row">${button('Возродиться на старте','respawn:start','primary')}${game.parts.some(v=>v.type==='bed'&&v.hp>0)?button('Возродиться дома','respawn:home','secondary'):''}</div><p class="muted">Дом может быть занят монстрами. Выбор старта всегда доступен.</p>`;
+    html=`<div class="eyebrow">ПУТЬ НЕ ЗАКОНЧЕН</div><h2 id="panelTitle">Лес забрал своё</h2><p>Ваши вещи остались на месте гибели. Навыки и запасы дома сохранены.${online?' Пока союзники живы, бой с хранителем продолжается.':' Хранители восстановили здоровье.'}</p><div class="row">${button('Возродиться на старте','respawn:start','primary')}${game.parts.some(v=>v.type==='bed'&&v.hp>0)?button('Возродиться дома','respawn:home','secondary'):''}</div><p class="muted">Дом может быть занят монстрами. Выбор старта всегда доступен.</p>`;
   }
   else if(panelName==='character'||panelName==='online'){
     html=title(panelName==='online'?'Вместе в Мидгарде':'Ваш странник')+profileForm()+ (panelName==='online'?`<p>Приватная комната до 4 игроков. Мир не останавливается, пока вы в меню. Один общий дом, отдельные вещи. PvP выключен по умолчанию.</p><label class="room-code-field">Код комнаты <input id="roomCode" type="text" inputmode="numeric" placeholder="1234" maxlength="10" autocomplete="off" autocapitalize="off" spellcheck="false"></label><div class="row">${button('Создать комнату','room-create','primary')}${button('Войти по коду','room-join')}${button('Соло','intro')}</div><p id="roomError" role="status"></p>`:button('Начать путь','character-start','primary'));
@@ -162,7 +164,7 @@ function renderPanel(){
     html=title('У огня времени')+`<p>${online?'Сетевой мир продолжает жить. Меню не защищает героя от опасности.':'Игра на паузе. День, голод и нападения остановлены.'}</p><div class="audio-settings">${button('Музыка: '+(audio.settings.music?'вкл':'выкл'),'audio:music','secondary')}${button('Звуки: '+(audio.settings.effects?'вкл':'выкл'),'audio:effects','secondary')}</div><div class="audio-volumes">${['music','effects'].map(channel=>`<label>${channel==='music'?'Музыка':'Эффекты'}<input type="range" min="0" max="100" step="1" data-volume="${channel}" value="${Math.round(audio.settings[channel+'Volume']*100)}" aria-label="Громкость ${channel==='music'?'музыки':'эффектов'}"><output id="volume-${channel}">${Math.round(audio.settings[channel+'Volume']*100)}%</output></label>`).join('')}</div><div class="row">${online?button(diagnosticsEnabled?'Скрыть диагностику':'Диагностика сети','diagnostics')+button(game.player.pvp?'PvP включён — выключить':'Включить PvP','pvp')+button('Выйти из комнаты','leave-online')+`<p>Комната: <b>${online.code}</b>. Мир продолжает жить.</p>`:''}${button('Продолжить','close','primary')}${button('Сохранить','save','secondary')}${button('Копия сохранения','export','secondary')}${button('Управление','help','secondary')}</div><hr><label ${online?'hidden':''}>Восстановить из файла <input id="importFile" type="file" accept="application/json,.json"></label><p class="muted">Импорт заменит текущий мир только после подтверждения. Локальное сохранение принадлежит этому браузеру; очистка его данных удаляет прогресс.</p><hr>${button('Начать новый путь','new-confirm','danger secondary')}${saveError?`<p class="notice">${escape(saveError)}</p>`:''}`;
   }
   else if(panelName==='help'){
-    html=title('Как играть')+`<div class="keyhelp"><span>Левый круг / WASD — движение; сильное отклонение / Shift — спринт. Кнопка ➤ рядом со стиком — автобег</span><span>Удар / Пробел — атака ближайшей цели</span><span>Блок / удержание Q — защита</span><span>Действие / E — собрать, открыть, прочитать</span><span>Карта / M · Пауза / Esc</span><span>1–9 — предметы на поясе</span></div><hr><p>Соберите дерево и камень вокруг тропы. В меню строительства отметьте участок и поставьте пол. Затем разместите стены по краям, дверь и очаг. Для пола зажмите и протяните область. Для стен протяните область полов — получите замкнутый контур. Одиночное касание ставит стену на ближайшее ребро; R переключает автоматический выбор и шесть направлений. Оставьте проход дверью: разберите один сегмент стены и поставьте дверь. Двигаться при этом можно левым кругом.</p><p>У верстака создайте меч, лук, стрелы, броню и щит. Броню и щит можно надеть или снять в сумке. Без щита блок руками слабее; лук занимает обе руки. Еду можно съесть в сумке. У очага в закрытом доме здоровье восстанавливается, если вы сыты и рядом нет монстров. Короткая вспышка перед атакой противника — время решить, блокировать ли или отступить.</p><p>Нападение начнётся после предупреждения. Закрытая дверь удерживает обычных врагов; развитый дом привлекает разрушителей. Кнопка действия работает с ближайшим объектом — подойдите непосредственно к нужному.</p><div class="row">${button(started?'Вернуться в игру':'К началу',started?'close':'intro','primary')}</div>`;
+    html=title('Как играть')+`<div class="keyhelp"><span>Левый круг / WASD — движение; сильное отклонение / Shift — спринт. Кнопка ➤ рядом со стиком — автобег</span><span>Удар / Пробел — атака ближайшей цели</span><span>Блок / удержание Q — защита</span><span>Действие / E — собрать, открыть, прочитать</span><span>Карта / M · Пауза / Esc</span><span>1–9 — предметы на поясе</span></div><hr><p>Соберите дерево и камень вокруг тропы. В меню строительства отметьте участок и поставьте пол. Затем разместите стены по краям, дверь и очаг. Для пола зажмите и протяните область. Для стен протяните область полов — получите замкнутый контур. Одиночное касание ставит стену на ближайшее ребро; R переключает автоматический выбор и шесть направлений. Для прохода выберите дверь и коснитесь стены: она заменится с зачётом материалов. Двигаться при этом можно левым кругом.</p><p>У верстака создайте меч, лук, стрелы, броню и щит. Броню и щит можно надеть или снять в сумке. Без щита блок руками слабее; лук занимает обе руки. Еду можно съесть в сумке. У очага в закрытом доме здоровье восстанавливается, если вы сыты и рядом нет монстров. Короткая вспышка перед атакой противника — время решить, блокировать ли или отступить.</p><p>Нападение начнётся после предупреждения. Закрытая дверь удерживает обычных врагов; развитый дом привлекает разрушителей. Кнопка действия работает с ближайшим объектом — подойдите непосредственно к нужному.</p><div class="row">${button(started?'Вернуться в игру':'К началу',started?'close':'intro','primary')}</div>`;
   }
   else if(panelName==='new-confirm'){
     html=title('Начать заново?')+`<p>Текущий мир будет заменён. Если он нужен, сначала сохраните копию через меню паузы.</p><div class="row">${button('Заменить мир','new','danger secondary')}${button('Отмена',started?'pause':'intro','primary')}</div>`;
@@ -410,7 +412,7 @@ function updateJoy(event) {
   let x = (event.clientX - joy.cx) / 42, y = (event.clientY - joy.cy) / 42;
   const length = Math.hypot(x, y);
   if (length > 1) { x /= length; y /= length; }
-  joy.x = x; joy.y = y;
+  const move=joystickVector(x,y);joy.x=move.x;joy.y=move.y;
   joy.sprint = joystickSprint(length,joy.sprint);
   $('stick').style.transform = 'translate(' + x * 30 + 'px,' + y * 30 + 'px)';
 }
@@ -496,20 +498,17 @@ function hud(){
   $('hpText').textContent=`${Math.ceil(p.hp)} / ${max}`;
   $('staminaFill').style.width=`${p.stamina}%`;
   $('staminaText').textContent=Math.floor(p.stamina);
+  $('staminaFill').classList.toggle('energy-denied',!!p.feedback?.energy&&game.time-p.feedback.at<.7);
   $('foodText').textContent=p.food>0?`Сытость · ${Math.floor(p.food/60)}:${String(Math.floor(p.food%60)).padStart(2,'0')}`:'Голод · здоровье убывает';
   $('buffText').textContent='';
   $('statusEffects').innerHTML=G.statusEffects(game).map(effect=>`<button type="button" class="status-icon ${effect.kind}" aria-label="${escape(effect.name)}" data-tooltip="${escape(effect.name)}">${icon(effect.icon)}${effect.seconds?`<small>${effect.seconds<60?`${Math.ceil(effect.seconds)}с`:`${Math.ceil(effect.seconds/60)}м`}</small>`:''}</button>`).join('');
   $('clock').textContent=`${night?'Ночь':'День'} ${Math.floor(game.time/G.DAY)+1}`;
   $('sun').textContent=night?'☾':'☀';
   $('phase').textContent=`${night?'До рассвета':'До ночи'} ${Math.floor((night?G.DAY-phase:300-phase)/60)}:${String(Math.floor((night?G.DAY-phase:300-phase)%60)).padStart(2,'0')} · ${G.BIOME_NAMES[G.biomeAt(p.x,p.y)]}`;
-  let objective=['Свой угол в лесу','Соберите дерево, отметьте участок'];
-  if(game.home)objective=['Первые стены','Пол, замкнутые стены, дверь и очаг'];
-  if(game.parts.some(p=>p.type==='fire'))objective=['Подготовка к вылазке','Верстак, снаряжение и еда'];
-  if(p.inv.sword||p.inv.bow)objective=['Древний круг','Исследуйте лес к северо-востоку'];
-  if(game.bossDefeated)objective=['В снега Йотунхейма','Создайте меховой плащ. Путь на восток'];if(game.defeated.includes('snow'))objective=['Земля пламени','Создайте огнестойкий плащ. Идите на юг'];if(game.defeated.includes('fire'))objective=['Сага трёх земель','Хранители повержены'];
+  const objective=nextObjective(game);
   $('objectiveTitle').textContent=objective[0];
-  $('objectiveText').textContent=online?(online.error?'Связь: '+online.error:`Комната ${online.code} · ${game.online?.count||1}/4 · PvP ${game.player.pvp?'вкл':'выкл'}`):objective[1];
-  $('interact').innerHTML=icon(context?.kind==='resource'?context.type:'hand')+`<small><span class="touch-label">Действие</span><span class="keyboard-label">${context?escape(context.label):'Действие'} · E</span></small>`;
+  $('objectiveText').textContent=online?.error?'Связь: '+online.error:objective[1];
+  $('interact').innerHTML=icon(context?.kind==='resource'?context.type:context?.kind==='part'?context.type:context?.kind==='note'?'journal':context?.kind==='grave'?'bag':'hand')+`<small>Действие<span class="keyboard-label"> · E</span></small>`;
   $('interact').disabled=game.player.dead;
   $('block').innerHTML=icon(G.usingShield(p)?'shield':'hand')+`<small>Блок<span class="keyboard-label"> · Q</span></small>`;
   $('attack').innerHTML=icon(G.weaponOwned(p)?p.weapon:'hand')+'<small>Удар<span class="keyboard-label"> · Пробел</span></small>';
@@ -522,13 +521,13 @@ function hud(){
   if(boss){
     $('bossName').textContent=G.BOSSES.find(b=>b.biome===(boss.biome||'forest')).name;
     $('bossFill').style.width=`${Math.max(0,boss.hp/boss.maxHp*100)}%`;
-    $('bossPhase').textContent=boss.phase==='windup'?({ranged:'Залп корней — двигайтесь в сторону',slam:'Круговой удар — отступите',swipe:'Замах — выйдите из сектора'})[boss.attackKind]||'Замах':boss.hp<boss.maxHp*.5?'Ярость йотуна':'Страж мирового древа';
+    $('bossPhase').textContent=boss.phase==='windup'?({ranged:'Залп — двигайтесь в сторону',slam:'Круговой удар — отступите',swipe:'Замах — выйдите из сектора',frostwave:'Ледяная волна — внутрь кольца',meteor:'Метеор — уйдите с отметки',summon:'Призыв помощников'})[boss.attackKind]||'Замах':boss.hp<boss.maxHp*.5?'Ярость йотуна':'Страж мирового древа';
   }
   $('buildBanner').classList.toggle('hidden',!buildType);
   $('turnBuild').textContent=buildEdge===null?'Ребро: авто':'Ребро '+(buildEdge+1)+' ↻';
   if(buildType){
     const plan=buildDrag&&buildType!=='remove'?placementPlan(game,buildType,buildDrag.start,buildDrag.end,buildEdge):[];
-    $('buildHint').innerHTML=buildType==='remove'?'Коснитесь части для разборки':`${G.PARTS[buildType].name} · ${plan.length?plan.length+' частей · '+costText(planCost(plan,G.PARTS)):'зажмите и протяните область'}`;
+    $('buildHint').innerHTML=buildType==='remove'?'Коснитесь части для разборки':`${G.PARTS[buildType].name} · ${plan.length?(plan.some(p=>p.replaces)?'Замена · доплата/возврат: ':'частей: '+plan.length+' · ')+costText(planCost(plan,G.PARTS)):buildType==='door'?'коснитесь стены или свободного ребра':G.PARTS[buildType].solid?'протяните по полам или коснитесь ребра':'выберите место'}`;
   }
   const event=game.events.at(-1);
   if(event&&event.id!==lastEvent){
@@ -548,7 +547,7 @@ function frame(now){
   else if(autoRun){sx=runHeading.x;sy=runHeading.y;}
   input.sprint=autoRun||!!joy?.sprint||keys.has('shift');
   $('autoRun').setAttribute?.('aria-pressed',String(autoRun));
-  const move=fromPlane(sx+sy*2,-sx+sy*2);
+  const move=movementVector(sx,sy);
   input.x=move.x;
   input.y=move.y;
   input.block=touchBlock||keys.has('q');

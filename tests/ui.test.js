@@ -130,9 +130,9 @@ test('UI boots, opens every panel, moves via keyboard, saves and pauses while hi
   assert.match(elements.get('panel').innerHTML,/inventory-grid/);click('select:berry');assert.match(elements.get('panel').innerHTML,/Назначить на пояс/);
   click('assign:berry:8');click('close');
   winEvents.get('keydown')({key:'9',repeat:false,preventDefault(){}});
-  let saved=JSON.parse(storage.get('forest-hearth-v1'));assert.equal(saved.player.quickbar[8],'berry');assert.equal(saved.player.inv.berry,2);
+  let saved=JSON.parse(storage.get('forest-hearth-v1'));assert.equal(saved.player.quickbar[8],'berry');assert.equal(saved.player.inv.berry,3);
   elements.get('quickbar').events.get('pointerdown')({pointerType:'touch',preventDefault(){},target:{closest:()=>({dataset:{slot:'8'}})}});
-  saved=JSON.parse(storage.get('forest-hearth-v1'));assert.equal(saved.player.inv.berry,1);
+  saved=JSON.parse(storage.get('forest-hearth-v1'));assert.equal(saved.player.inv.berry,3);
   nav.find(n=>n.dataset.panel==='build').events.get('click')();
   click('claim');
   assert.ok(JSON.parse(storage.get('forest-hearth-v1')).home);

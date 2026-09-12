@@ -7,7 +7,7 @@ $('quickbar').innerHTML=Array.from({length:9},(_,i)=>`<button class="quick-slot"
 for(const b of document.querySelectorAll('[data-panel]'))b.innerHTML=icon(b.dataset.panel)+`<span>${b.dataset.panel==='build'?'Строить':'Сумка'}</span>`;
 $('attack').innerHTML=icon('sword')+'<small>Удар · Пробел</small>';
 $('block').innerHTML=icon('guard')+'<small>Блок · Q</small>';
-$('interact').innerHTML=icon('wood')+'<small>Рубить: Дерево · E</small>';
+$('interact').innerHTML=icon('wood')+'<small>Действие · E</small>';
 $('foodText').textContent='Сытость ещё 45 мин';$('buffText').textContent='';$('hpText').textContent='140 / 140';$('staminaText').textContent='100';$('statusEffects').innerHTML=['stew','energy','armor','root','water','fire'].map(name=>`<span class="status-icon">${icon(name)}<small>15м</small></span>`).join('');
 $('bossPhase').textContent='Лес пробудился';
 window.runLayoutCase=async({width,height,mode,insets})=>{

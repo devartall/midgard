@@ -1,8 +1,9 @@
+import {planCost} from './construction.js';
 import {GroundPainter,drawMountain} from './landscape.js';
 import {drawNature,drawAnimal,drawDetailedResource} from './nature.js';
 import { wallEdges, toPlane, fromPlane, corners, hexRound, edgePoints } from './hex.js';
 import { ActorAnimator } from './animation.js';
-import { drawActor, drawBuilding, drawFloor } from './art.js';
+import { drawActor, drawAttackWarning, drawBuilding, drawFloor } from './art.js';
 import {
   SCENERY,BOSSES,biomeAt, GATHER, context, CAMPS, PARTS, SIZE,DAY,START,BOSS_POS,NOTES,hash,terrain,isTrail,isNight,distance,inHome,homeValue
 }
@@ -167,7 +168,7 @@ export class Renderer {
       const q=this.screen(camp.x,camp.y);this.text(q.x,q.y-6,'ᛏ', '#a98c60',19);
       for(let i=0;i<3;i++)this.box(camp.x+(i-1)*1.1,camp.y+1,.17,13*this.zoom,['#8b927f','#3e5150','#596b60']);
     }
-    for(const h of g.hazards||[]){const q=this.screen(h.x,h.y);c.fillStyle=g.time<h.at?'#ffcf8055':'#ed592988';c.strokeStyle='#ffce7b';c.beginPath();c.ellipse(q.x,q.y,this.scale*1.7*1.4,this.scale*.85*1.4,0,0,Math.PI*2);c.fill();c.stroke();this.text(q.x,q.y-15,g.time<h.at?'МЕТЕОР':'ОГОНЬ','#ffdfb3',12);}
+
     const objects=[];
     const visible=o=>o.x>=minX&&o.x<=maxX&&o.y>=minY&&o.y<=maxY;
     for(const r of g.resources)if(visible(r)&&!g.parts.some(p=>p.x===r.x&&p.y===r.y))objects.push({
@@ -230,6 +231,8 @@ export class Renderer {
     vignette.addColorStop(1,'#071a1a77');
     c.fillStyle=vignette;
     c.fillRect(0,0,this.w,this.h);
+    for(const e of g.enemies)if(!e.dead&&e.phase==='windup'&&visible(e))this.detail(e,view=>drawAttackWarning(view,e,g,this.animator.pose(e,g.time)));
+    for(const h of g.hazards||[]){const q=this.screen(h.x,h.y);c.fillStyle=g.time<h.at?'#ffcf8055':'#ed592988';c.strokeStyle='#ffce7b';c.beginPath();c.ellipse(q.x,q.y,this.scale*1.7*1.4,this.scale*.85*1.4,0,0,Math.PI*2);c.fill();c.stroke();this.text(q.x,q.y-15,g.time<h.at?'МЕТЕОР':'ОГОНЬ','#ffdfb3',12);}
     for(const fx of g.effects){
       const q=this.screen(fx.x,fx.y);
       if(fx.ring){
@@ -251,6 +254,7 @@ export class Renderer {
     const region=biomeAt(g.player.x,g.player.y);
     if(region!=='forest'){c.save();c.fillStyle=region==='snow'?'#edf5f3bb':'#ffbd6877';for(let i=0;i<45;i++){const x=(i*127+Math.sin(g.time*.3+i)*25+g.time*(region==='snow'?9:3))%this.w,y=(i*83+g.time*(region==='snow'?24:-15)+this.h*100)%this.h;c.beginPath();c.arc(x,y,region==='snow'?1.4:1,0,Math.PI*2);c.fill();}c.restore();}
     const target=context(g);
+    if(target&&target.kind!=='resource')this.hex(target.x,target.y,.65,'#ead49716','#ffe4a9aa');
     if(target?.kind==='resource'){
       const q=this.screen(target.x,target.y),active=target.ready<=g.time;
       c.strokeStyle=active?'#edcf88':'#8f9b9477';c.lineWidth=1;c.beginPath();c.ellipse(q.x,q.y,18,8,0,0,Math.PI*2);c.stroke();
@@ -262,7 +266,7 @@ export class Renderer {
       }
     }
     if(preview){
-      const cost={};for(const p of preview)for(const [k,n]of Object.entries(PARTS[p.type].cost))cost[k]=(cost[k]||0)+n;
+      const cost=planCost(preview,PARTS);
       const allowed=Object.entries(cost).every(([k,n])=>(g.player.inv[k]||0)>=n);
       for(const p of preview){
         const color=allowed&&inHome(g,p)?'#b8d5a877':'#de896677';

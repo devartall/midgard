@@ -247,28 +247,11 @@ export function drawActor(r, actor, g, player, pose) {
   const c = r.ctx, q = r.screen(actor.x, actor.y), boss = actor.type === 'boss';
   c.save();
   oval(c, q.x, q.y + 2, boss ? 46 : actor.type === 'wolf' ? 20 : 13, boss ? 10 : 5, '#071c1c66');
-  if (!player && actor.phase === 'windup') {
-    const radius = boss ? bossAttackSpec(actor.attackKind,actor.hp<actor.maxHp*.5).reach : ENEMY_REACH[actor.type];
-    c.fillStyle = '#bd664335'; c.strokeStyle = '#e7ad6b99'; c.lineWidth = 1;
-    c.beginPath();
-    if(boss&&actor.attackKind==='swipe'){
-      const aim=aimAngle({x:actor.attackFacingX,y:actor.attackFacingY}),spread=Math.acos(.3);
-      c.moveTo(q.x,q.y);for(let i=0;i<=24;i++){const angle=aim-spread+spread*2*i/24,v=fromPlane(Math.cos(angle)*radius,Math.sin(angle)*radius),point=r.screen(actor.x+v.x,actor.y+v.y);c.lineTo(point.x,point.y);}c.closePath();
-    }else c.ellipse(q.x, q.y, r.scale * (boss&&actor.attackKind==='ranged'?1.2:radius) * Math.SQRT2, r.scale * (boss&&actor.attackKind==='ranged'?1.2:radius) / Math.SQRT2, 0, 0, Math.PI * 2);
-    c.fill(); c.stroke();
-    if(boss&&actor.attackKind==='frostwave'){c.strokeStyle='#b8faff';c.beginPath();c.ellipse(q.x,q.y,r.scale*2.3*Math.SQRT2,r.scale*2.3/Math.SQRT2,0,0,Math.PI*2);c.stroke();r.text(q.x,q.y+16,'ВНУТРЬ КОЛЬЦА','#d5fcff',10);}
-    if(boss&&actor.attackKind==='ranged'){
-      const n=Math.max(.001,distance({x:0,y:0},{x:actor.attackFacingX,y:actor.attackFacingY})),end=r.screen(actor.x+actor.attackFacingX/n*16,actor.y+actor.attackFacingY/n*16);
-      line(c,[[q.x,q.y],[end.x,end.y]],'#e6bf8277',3);
-    }
-    c.strokeStyle = '#f1b177'; c.lineWidth = 2; c.beginPath();
-    c.arc(q.x, q.y - (boss ? 185 : 63), 10, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pose.windup); c.stroke();
-  }
   c.save(); c.translate(q.x + pose.lunge * pose.facing, q.y + pose.bob); c.scale(pose.facing*(boss?1.85:1.3),boss?1.85:1.3);
   if(!player&&actor.biome&&actor.biome!=='forest')realmActor(r,actor,pose);
   else if (actor.type === 'wolf') wolf(r, pose);
   else if (boss) guardian(r, actor, pose);
-  else humanoid(r, actor, g, pose, player);
+  else {if(player){c.shadowColor='#e5ddb077';c.shadowBlur=2;}humanoid(r, actor, g, pose, player);c.shadowBlur=0;}
   if (pose.strike && !player) {
     c.strokeStyle = boss ? '#d7b97899' : player ? '#e8eac7aa' : '#dba77699';
     c.lineWidth = boss ? 4 : 2; c.beginPath();
@@ -345,4 +328,26 @@ function drawGatherTool(r,actor,g,pose){
   if(actor.harvest.type==='wood'){r.poly([[20,-4],[31,-10],[35,-7],[33,7],[28,9],[20,3]],'#9eafa7','#536c6b');line(c,[[31,-10],[35,-7],[33,7],[28,9]],'#e3e4cf',2);line(c,[[22,-3],[28,-3],[27,3]],'#627b76');oval(c,22,0,1,1,'#d9c395');}
   else line(c,[[20,-10],[27,-4],[28,4],[24,10]],'#c1ccc3',4);
   oval(c,1,0,4,4,appearance(actor.appearance).skin);c.restore();
+}
+
+export function drawAttackWarning(r,actor,g,pose){
+ if(actor.dead)return;const c=r.ctx,q=r.screen(actor.x,actor.y),boss=actor.type==='boss';c.save();
+  if (actor.phase === 'windup') {
+    const radius = boss ? bossAttackSpec(actor.attackKind,actor.hp<actor.maxHp*.5).reach : ENEMY_REACH[actor.type];
+    c.fillStyle = '#bd664335'; c.strokeStyle = '#e7ad6b99'; c.lineWidth = 1;
+    c.beginPath();
+    if(boss&&actor.attackKind==='swipe'){
+      const aim=aimAngle({x:actor.attackFacingX,y:actor.attackFacingY}),spread=Math.acos(.3);
+      c.moveTo(q.x,q.y);for(let i=0;i<=24;i++){const angle=aim-spread+spread*2*i/24,v=fromPlane(Math.cos(angle)*radius,Math.sin(angle)*radius),point=r.screen(actor.x+v.x,actor.y+v.y);c.lineTo(point.x,point.y);}c.closePath();
+    }else c.ellipse(q.x, q.y, r.scale * (boss&&actor.attackKind==='ranged'?1.2:radius) * Math.SQRT2, r.scale * (boss&&actor.attackKind==='ranged'?1.2:radius) / Math.SQRT2, 0, 0, Math.PI * 2);
+    c.fill(); c.stroke();
+    if(boss&&actor.attackKind==='frostwave'){c.strokeStyle='#b8faff';c.beginPath();c.ellipse(q.x,q.y,r.scale*2.3*Math.SQRT2,r.scale*2.3/Math.SQRT2,0,0,Math.PI*2);c.stroke();r.text(q.x,q.y+16,'ВНУТРЬ КОЛЬЦА','#d5fcff',10);}
+    if(boss&&actor.attackKind==='ranged'){
+      const n=Math.max(.001,distance({x:0,y:0},{x:actor.attackFacingX,y:actor.attackFacingY})),end=r.screen(actor.x+actor.attackFacingX/n*16,actor.y+actor.attackFacingY/n*16);
+      line(c,[[q.x,q.y],[end.x,end.y]],'#e6bf8277',3);
+    }
+    c.strokeStyle = '#f1b177'; c.lineWidth = 2; c.beginPath();
+    c.arc(q.x, q.y - (boss ? 185 : 63), 10, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pose.windup); c.stroke();
+  }
+ c.restore();
 }

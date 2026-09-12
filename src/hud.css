@@ -187,3 +187,39 @@ input[type="text"],input:not([type]),textarea,#diagnosticsReadout{user-select:te
 .character-fields input,.room-code-field input{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:#10251e;color:var(--cream)}
 .room-code-field{display:grid;gap:6px;max-width:300px;margin:12px 0}
 .character-fields select{min-width:0;width:100%;font-size:16px!important}
+
+/* Larger tap targets stay within the existing HUD regions. */
+#hud .top-actions button,#tooltipToggle{width:44px;height:44px}
+#hud .top-actions{gap:4px}
+.tooltip-space{width:44px}
+#tooltipToggle{right:calc(env(safe-area-inset-right) + 104px)}
+#hud .hud-dock{max-width:480px}
+#hud .quickbar{gap:3px;height:48px;padding:2px}
+#hud .quick-slot{min-height:44px;height:44px}
+#hud .quick-slot .icon{width:26px;height:26px}
+#hud .quick-slot b{font-size:10px;color:#fff3d5;text-shadow:0 1px 2px #000}
+#hud .meter b{font-size:11px;font-weight:700;color:#fff8e4}
+#hud .meter>div{height:15px}
+#hud .meter{height:24px}
+#hud .timebox small{font-size:10px}
+#hud[data-density="short"] .objective{display:block;padding:0;max-height:var(--hud-middle);overflow:hidden}
+#hud[data-density="short"] .objective strong{font-size:10px}
+#hud[data-density="short"] .objective span{font-size:10px;line-height:1.15}
+#hud .objective span{font-size:11px}
+#hud .stamina .energy-denied{background:#f2a264;filter:brightness(1.6)}
+.card .unavailable{font-size:11px;line-height:1.3;white-space:normal;color:#cfc5b1;min-height:44px}
+@media(max-height:500px){
+ .item-detail{padding:10px;display:flex;flex-direction:column;gap:5px}
+ .item-detail>.detail-icon{width:40px;height:40px;margin:0;align-self:center}
+ .item-detail h3{font-size:17px;margin:0}
+ .item-detail p{font-size:12px;line-height:1.35;margin:0}
+ .item-detail h4{font-size:12px;margin:6px 0 0}
+ .item-detail>button{min-height:44px;padding:8px}
+ .item-detail .slot-assign{gap:3px}
+ .item-detail .slot-assign button{min-height:32px}
+ .item-slot.empty{min-height:0;opacity:.35}
+}
+#hud[data-density="short"] .build-banner{grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:3px}
+#hud[data-density="short"] #buildHint{grid-column:auto;max-height:28px;white-space:normal;line-height:1.2}
+#hud[data-density="short"] .build-banner button{min-height:32px}
+#hud[data-density="short"] #toast{font-size:10px;line-height:12px;padding:2px 4px}

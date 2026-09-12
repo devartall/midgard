@@ -1,3 +1,13 @@
+import {fromPlane,metric} from './hex.js';
+export function joystickVector(x,y){
+ const length=Math.hypot(x,y);if(length<=.09)return {x:0,y:0};
+ const amount=(Math.min(1,length)-.09)/.91;
+ return {x:x/length*amount,y:y/length*amount};
+}
+export function movementVector(x,y){
+ const d=fromPlane(x+y*2,-x+y*2),length=metric(d,{x:0,y:0}),amount=Math.min(1,Math.hypot(x,y));
+ return length?{x:d.x/length*amount,y:d.y/length*amount}:{x:0,y:0};
+}
 // Pointer Events own gameplay input; Touch Events only suppress WebKit defaults.
 export function preventGesture(event) {
   if (event.cancelable) event.preventDefault();
