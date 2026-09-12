@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { bindPointer, installGestureGuard } from '../src/input.js';
+import { bindPointer, bindTap, installGestureGuard } from '../src/input.js';
 
 class Surface {
   listeners = new Map();
@@ -62,16 +62,29 @@ test('WebKit fallback cancels game gestures without suppressing HUD taps or touc
   installGestureGuard([world, hud]);
   for (const name of ['touchmove', 'gesturestart', 'gesturechange', 'gestureend']) {
     assert.equal(world.listeners.get(name)[0].options.passive, false);
-    assert.ok(world.send(name).defaultPrevented);
+    assert.ok(world.send(name, {target:{closest:()=>({})}}).defaultPrevented);
   }
   assert.ok(hud.send('touchstart', { target: { closest: () => ({}) } }).defaultPrevented);
   assert.equal(hud.send('touchstart', { target: { closest: () => null } }).defaultPrevented, false);
+  assert.equal(hud.send('touchmove', {target:{closest:()=>null}}).defaultPrevented,false,'ordinary button jitter must not cancel its native click');
   assert.equal(menu.listeners.size, 0);
-  assert.equal(world.send('touchmove', { cancelable: false }).defaultPrevented, false);
+  assert.equal(world.send('touchmove', { cancelable: false,target:{closest:()=>({})} }).defaultPrevented, false);
 });
 
 test('construction release distinguishes commit from cancellation, lost capture and pause reset',()=>{
   const surface=new Surface(),results=[];const binding=bindPointer(surface,{end:event=>results.push(event?.type||'reset')});
   for(const name of ['pointerup','pointercancel','lostpointercapture']){surface.send('pointerdown');surface.send(name);}
   surface.send('pointerdown');binding.reset();assert.deepEqual(results,['pointerup','pointercancel','lostpointercapture','reset']);
+});
+
+test('HUD taps activate once on release, accept a second thumb and reject drags/cancel',()=>{
+ const surface=new Surface();surface.getBoundingClientRect=()=>({left:0,top:0,width:44,height:44});let count=0;
+ const tap=bindTap(surface,()=>count++),point={clientX:20,clientY:20,pointerId:2,isPrimary:false};
+ surface.send('pointerdown',point);assert.equal(count,0);surface.send('pointerup',point);assert.equal(count,1);
+ surface.onclick({detail:1});assert.equal(count,1,'compatibility click must not toggle again');
+ surface.onclick({detail:0});assert.equal(count,2,'keyboard activation remains available');
+ surface.send('pointerdown',point);surface.send('pointermove',{...point,clientX:40});surface.send('pointerup',point);assert.equal(count,2);
+ surface.send('pointerdown',point);surface.send('pointercancel',point);assert.equal(count,2);
+ surface.send('pointerdown',point);tap.reset();surface.send('pointerup',point);assert.equal(count,2);
+ surface.send('pointerdown',point);surface.send('pointerup',{...point,clientX:60});assert.equal(count,2);
 });

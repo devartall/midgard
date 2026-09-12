@@ -5,12 +5,12 @@ export function hudLayout(width,height,insets={}) {
   const short=h<340,compact=h<360||w<760,gap=short?4:6;
   const side=Math.min(compact?120:136,Math.max(100,w*.21));
   const header=44,status=short?78:132;
-  const toast=short?28:36,bar=48,nav=44,dock=toast+bar+nav+gap*2;
+  const toast=short?28:36,bar=36,nav=44,dock=156;
   const middle=Math.max(0,h-header-dock-gap*2),center=w-side*2-gap*2;
   const x=pad.left+side+gap,bottom=height-pad.bottom,top=pad.top;
   const rect=(x,y,width,height)=>({x,y,width,height});
   return {density:short?'short':compact?'compact':'regular',side,header,status:Math.min(status,middle),middle,toast,bar,nav,dock,gap,pad,
-    regions:{header:rect(pad.left,top,w,header),vitals:rect(pad.left,top+header+gap,side,Math.min(status,middle)),objective:rect(width-pad.right-side,top+header+gap,side,Math.min(status,middle)),alerts:rect(x,top+header+gap,center,middle),movement:rect(pad.left,bottom-dock,side,dock),combat:rect(width-pad.right-side,bottom-dock,side,dock),toast:rect(x,bottom-dock,center,toast),quickbar:rect(x,bottom-nav-gap-bar,center,bar),navigation:rect(x,bottom-nav,center,nav)}};
+    regions:{header:rect(pad.left,top,w,header),vitals:rect(pad.left,top+header+gap,side,Math.min(status,middle)),objective:rect(width-pad.right-side,top+header+gap,side,Math.min(status,middle)),alerts:rect(x,top+header+gap,center,middle),movement:rect(pad.left,bottom-dock,side,dock),combat:rect(width-pad.right-side,bottom-dock,side,dock),toast:rect(x,bottom-nav-gap-bar-gap-toast,center,toast),quickbar:rect(x,bottom-nav-gap-bar,center,bar),navigation:rect(x,bottom-nav,center,nav)}};
 }
 export function applyHudLayout(hud,width,height,insets={}){
   const layout=hudLayout(width,height,insets);hud.dataset.density=layout.density;
@@ -20,7 +20,7 @@ export function applyHudLayout(hud,width,height,insets={}){
 }
 export function overlap(a,b,tolerance=.5){return Math.min(a.x+a.width,b.x+b.width)-Math.max(a.x,b.x)>tolerance&&Math.min(a.y+a.height,b.y+b.height)-Math.max(a.y,b.y)>tolerance;}
 // Browser-side audit used by tools/layout-check.html. Backgrounds/containers are excluded.
-export const HUD_TARGETS=['.topbar','.vitals','.objective','#raid','#bossHud','#buildBanner','#toast','#quickbar','.bottom-nav','#joystick','.combat'];
+export const HUD_TARGETS=['.topbar','.vitals','.objective','#raid','#bossHud','#buildBanner','#toast','#quickbar','.bottom-nav','#joystick','#autoRun','.combat'];
 export function auditHud(doc){
   const items=HUD_TARGETS.map(selector=>({selector,node:doc.querySelector(selector)})).filter(({node})=>node&&node.getClientRects().length&&!node.closest('.hidden'));
   const errors=[];const view=doc.defaultView,w=view.innerWidth,h=view.visualViewport?.height||view.innerHeight;

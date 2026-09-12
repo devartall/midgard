@@ -15,9 +15,12 @@ export function preventGesture(event) {
 
 export function installGestureGuard(surfaces) {
   for (const surface of surfaces) {
-    for (const name of ['touchmove', 'gesturestart', 'gesturechange', 'gestureend']) {
+    for (const name of ['gesturestart', 'gesturechange', 'gestureend']) {
       surface.addEventListener(name, preventGesture, { passive: false });
     }
+    surface.addEventListener('touchmove', event => {
+      if (event.target.closest?.('#world, #joystick, .action')) preventGesture(event);
+    }, { passive: false });
     // Native edge navigation/long-press must not take a joystick or action touch.
     // Keep ordinary HUD buttons' synthetic clicks intact.
     surface.addEventListener('touchstart', event => {
@@ -59,7 +62,14 @@ export function bindPointer(element, { enabled = () => true, start, move, end })
   }
   return { reset: release };
 }
-// Separate start/stop thresholds prevent walk/run flicker near the edge.
-export function joystickSprint(length,wasSprinting=false){
-  return length >= (wasSprinting ? .90 : .97);
+// HUD taps do not depend on WebKit's compatibility mouse click.
+export function bindTap(element,activate){
+ let origin=null,cancelled=false;
+ const binding=bindPointer(element,{
+  start:event=>{origin={x:event.clientX,y:event.clientY};cancelled=false;},
+  move:event=>{if(Math.hypot(event.clientX-origin.x,event.clientY-origin.y)>10)cancelled=true;},
+  end:event=>{if(event?.type==='pointerup'&&!cancelled){const r=element.getBoundingClientRect();if(event.clientX>=r.left&&event.clientX<=r.left+r.width&&event.clientY>=r.top&&event.clientY<=r.top+r.height)activate();}origin=null;}
+ });
+ element.onclick=event=>{if(!event||event.detail===0)activate();}; // Keyboard / assistive activation only.
+ return binding;
 }

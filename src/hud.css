@@ -168,11 +168,11 @@ input[type="text"],input:not([type]),textarea,#diagnosticsReadout{user-select:te
 #hud .combat .action small{font-size:8px;line-height:1.1}
 #hud .hud-movement{position:relative;align-items:end;justify-items:start}
 #hud #joystick{width:88px;height:88px;justify-self:center}
-#autoRun{position:absolute;right:0;top:0;width:40px;height:40px;border-radius:50%;padding:0;display:grid;place-items:center;font-size:20px;pointer-events:auto}
+#autoRun{position:absolute;left:calc(50% - 22px);bottom:112px;width:44px;height:44px;border-radius:50%;padding:0;display:grid;place-items:center;font-size:20px;pointer-events:auto}
 #autoRun[aria-pressed="true"]{background:#a98742;color:#fff8d8;border-color:#f3d388}
-#hud .bottom-nav{max-width:300px}
+#hud .bottom-nav{max-width:260px}
 #hud .bottom-nav button{min-height:44px}
-#hud .bottom-nav .icon{width:19px;height:19px}
+#hud .bottom-nav .icon{width:16px;height:16px}
 #hud .bottom-nav span{font-size:8px}
 .character-editor{display:grid;grid-template-columns:minmax(0,1fr) minmax(130px,.55fr);gap:20px;align-items:start;margin-bottom:14px}
 .character-fields{min-width:0}.character-fields>label{display:grid;gap:5px}
@@ -193,10 +193,10 @@ input[type="text"],input:not([type]),textarea,#diagnosticsReadout{user-select:te
 #hud .top-actions{gap:4px}
 .tooltip-space{width:44px}
 #tooltipToggle{right:calc(env(safe-area-inset-right) + 104px)}
-#hud .hud-dock{max-width:480px}
-#hud .quickbar{gap:3px;height:48px;padding:2px}
-#hud .quick-slot{min-height:44px;height:44px}
-#hud .quick-slot .icon{width:26px;height:26px}
+#hud .hud-dock{max-width:360px;align-self:end}
+#hud .quickbar{gap:3px;height:36px;padding:2px}
+#hud .quick-slot{min-height:32px;height:32px;padding:2px 1px}
+#hud .quick-slot .icon{width:20px;height:20px}
 #hud .quick-slot b{font-size:10px;color:#fff3d5;text-shadow:0 1px 2px #000}
 #hud .meter b{font-size:11px;font-weight:700;color:#fff8e4}
 #hud .meter>div{height:15px}
@@ -223,3 +223,7 @@ input[type="text"],input:not([type]),textarea,#diagnosticsReadout{user-select:te
 #hud[data-density="short"] #buildHint{grid-column:auto;max-height:28px;white-space:normal;line-height:1.2}
 #hud[data-density="short"] .build-banner button{min-height:32px}
 #hud[data-density="short"] #toast{font-size:10px;line-height:12px;padding:2px 4px}
+
+/* Keep the actual button as the touch target across HUD icon refreshes. */
+#hud button>*{pointer-events:none}
+#hud .bottom-nav button{background:transparent;border-color:transparent}

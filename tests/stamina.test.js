@@ -2,15 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as G from '../src/game.js';
 import {Rooms} from '../tools/rooms.mjs';
-import {joystickSprint} from '../src/input.js';
 const fresh=()=>{const g=G.createGame();g.enemies=[];g.animals=[];g.parts=[];g.player.stamina=100;return g;};
 const advance=(g,seconds,input={})=>{for(let i=0;i<Math.round(seconds*20);i++)G.tick(g,.05,input);};
-test('joystick starts running only at the edge and tolerates small finger movements',()=>{
- assert.equal(joystickSprint(.9),false);
- assert.equal(joystickSprint(.97),true);
- assert.equal(joystickSprint(.94,true),true);
- assert.equal(joystickSprint(.89,true),false);
-});
 test('gathering charges each swing once, rejects exhaustion, and resumes after recovery',()=>{
  for(const type of Object.keys(G.GATHER)){
   const g=fresh(),cost=G.GATHER[type].hits===1?2:4;

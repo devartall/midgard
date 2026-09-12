@@ -38,9 +38,11 @@ button{
   touch-action:manipulation;
   -webkit-tap-highlight-color:transparent
 }
+@media (hover:hover) and (pointer:fine){
 button:hover{
   border-color:#d9bd79;
   background:#314033
+}
 }
 button:active,.pressed{
   transform:scale(.96);

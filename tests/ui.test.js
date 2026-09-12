@@ -99,6 +99,11 @@ test('UI boots, opens every panel, moves via keyboard, saves and pauses while hi
   for(let i=0;i<26;i++)frame();
   winEvents.get('keyup')({key:'у',code:'KeyE'});
   elements.get('pauseBtn').onclick();assert.equal(JSON.parse(storage.get('forest-hearth-v1')).player.inv.wood,504,'holding physical E harvests at night in Cyrillic layout');click('close');
+  const stick=elements.get('joystick'),finger={pointerType:'touch',pointerId:21,clientX:200,clientY:304,cancelable:true,preventDefault(){}};
+  stick.events.get('pointerdown')(finger);frame();frame();
+  elements.get('pauseBtn').onclick();assert.equal(JSON.parse(storage.get('forest-hearth-v1')).player.sprinting,false,'full joystick deflection stays walking');click('close');
+  elements.get('autoRun').onclick();frame();frame();
+  elements.get('pauseBtn').onclick();assert.equal(JSON.parse(storage.get('forest-hearth-v1')).player.sprinting,true,'run button explicitly starts sprint');click('close');
   const initial=JSON.parse(storage.get('forest-hearth-v1'));
   winEvents.get('keydown')({
     key:'d',preventDefault(){
@@ -122,18 +127,18 @@ test('UI boots, opens every panel, moves via keyboard, saves and pauses while hi
   assert.ok(moved.time>initial.time);
   click('close');
   for(const n of nav){
-    n.events.get('click')();
+    n.onclick();
     assert.match(elements.get('panel').innerHTML,/panelTitle/);
     click('close');
   }
-  nav.find(n=>n.dataset.panel==='bag').events.get('click')();
+  nav.find(n=>n.dataset.panel==='bag').onclick();
   assert.match(elements.get('panel').innerHTML,/inventory-grid/);click('select:berry');assert.match(elements.get('panel').innerHTML,/Назначить на пояс/);
   click('assign:berry:8');click('close');
   winEvents.get('keydown')({key:'9',repeat:false,preventDefault(){}});
   let saved=JSON.parse(storage.get('forest-hearth-v1'));assert.equal(saved.player.quickbar[8],'berry');assert.equal(saved.player.inv.berry,3);
   elements.get('quickbar').events.get('pointerdown')({pointerType:'touch',preventDefault(){},target:{closest:()=>({dataset:{slot:'8'}})}});
   saved=JSON.parse(storage.get('forest-hearth-v1'));assert.equal(saved.player.inv.berry,3);
-  nav.find(n=>n.dataset.panel==='build').events.get('click')();
+  nav.find(n=>n.dataset.panel==='build').onclick();
   click('claim');
   assert.ok(JSON.parse(storage.get('forest-hearth-v1')).home);
   const world=elements.get('world');

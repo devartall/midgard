@@ -43,3 +43,14 @@ test('status explanation opens on a normal touch and survives touch pointerout w
  events.get('pointerout')({pointerType:'touch'});assert.equal(tip.hidden,false);
  events.get('pointerdown:capture')({target:{closest:()=>null}});assert.equal(tip.hidden,true);
 });
+
+test('touch focus does not reveal a tooltip before activation; keyboard focus still does',()=>{
+ const events=new Map(),tip={id:'tip',hidden:true,offsetWidth:160,offsetHeight:50,style:{}};
+ const root={addEventListener:(name,fn,capture)=>events.set(name+(capture?':capture':''),fn)},toggle={addEventListener(){}};
+ globalThis.innerWidth=844;globalThis.innerHeight=390;
+ installTooltips({root,tip,toggle});
+ const node={dataset:{tooltip:'Сумка'},getBoundingClientRect:()=>({left:10,top:100,width:44,bottom:144}),setAttribute(){},removeAttribute(){}};
+ const event={target:{closest:s=>s==='.status-icon'?null:node}};
+ events.get('pointerdown:capture')(event);events.get('focusin')(event);assert.equal(tip.hidden,true);
+ events.get('keydown:capture')({...event,key:'Tab'});events.get('focusin')(event);assert.equal(tip.hidden,false);
+});

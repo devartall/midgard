@@ -11,7 +11,7 @@ export function tooltipPosition(rect,width,height,viewport){
  return {left:Math.max(left+gap,Math.min(rect.left+rect.width/2-width/2,left+viewport.width-width-gap)),top:Math.max(top+gap,Math.min(rect.top-height-gap>=top+gap?rect.top-height-gap:rect.bottom+gap,top+viewport.height-height-gap))};
 }
 export function installTooltips({root,tip,toggle,onMode=()=>{},message=()=> 'Подсказки: нажмите на предмет или кнопку. Игра на паузе. Нажмите ×, чтобы продолжить.'}){
- let inspecting=false,anchor=null;
+ let inspecting=false,anchor=null,keyboardFocus=false;
  const selector='[data-tooltip],[title],button,input,select,[role="img"],.recipe-icon';
  const find=event=>event.target.closest?.(selector);
  const hide=()=>{tip.hidden=true;anchor?.removeAttribute?.('aria-describedby');anchor=null;};
@@ -26,14 +26,15 @@ export function installTooltips({root,tip,toggle,onMode=()=>{},message=()=> 'П�
  toggle.addEventListener('click',()=>mode(!inspecting));
  root.addEventListener('pointerover',e=>{if(e.pointerType==='mouse'&&!inspecting)show(find(e));});
  root.addEventListener('pointerout',e=>{if(e.pointerType==='mouse'&&!inspecting)hide();});
- root.addEventListener('focusin',e=>show(find(e)));
+ root.addEventListener('focusin',e=>{if(keyboardFocus||inspecting)show(find(e));});
  root.addEventListener('focusout',()=>{if(!inspecting)hide();});
  for(const type of ['pointerdown','pointerup','click'])root.addEventListener(type,e=>{
+  if(type==='pointerdown')keyboardFocus=false;
   if(!inspecting){if(type==='pointerdown'){const status=e.target.closest?.('.status-icon');if(status){e.preventDefault();show(status);return;}hide();}if(type==='click'&&e.target.closest?.('.status-icon'))show(e.target.closest('.status-icon'));return;}
   if(e.target.closest?.('#tooltipToggle'))return;
   e.preventDefault();e.stopImmediatePropagation();if(type==='pointerdown')show(find(e));
  },true);
- root.addEventListener('keydown',e=>{if(e.key==='Escape'){if(inspecting){e.preventDefault();e.stopImmediatePropagation();mode(false);}else hide();}else if(inspecting&&e.key!=='Tab'&&!e.target.closest?.('#tooltipToggle')){e.preventDefault();e.stopImmediatePropagation();}},true);
+ root.addEventListener('keydown',e=>{keyboardFocus=true;if(e.key==='Escape'){if(inspecting){e.preventDefault();e.stopImmediatePropagation();mode(false);}else hide();}else if(inspecting&&e.key!=='Tab'&&!e.target.closest?.('#tooltipToggle')){e.preventDefault();e.stopImmediatePropagation();}},true);
  root.addEventListener('scroll',hide,true);
  return {hide,close:()=>mode(false)};
 }

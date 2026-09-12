@@ -8,7 +8,7 @@ import { gameKey } from './keys.js';
 import { icon } from './icons.js';
 import { placementPlan, planCost } from './construction.js';
 import { hexRound, fromPlane, wallDistance } from './hex.js';
-import { bindPointer, installGestureGuard, joystickSprint, joystickVector, movementVector } from './input.js';
+import { bindPointer, installGestureGuard, bindTap, joystickVector, movementVector } from './input.js';
 import * as Sim from './game.js';
 const G={...Sim};
 let online=null,networkBusy=false,diagnosticsAt=0;
@@ -164,7 +164,7 @@ function renderPanel(){
     html=title('У огня времени')+`<p>${online?'Сетевой мир продолжает жить. Меню не защищает героя от опасности.':'Игра на паузе. День, голод и нападения остановлены.'}</p><div class="audio-settings">${button('Музыка: '+(audio.settings.music?'вкл':'выкл'),'audio:music','secondary')}${button('Звуки: '+(audio.settings.effects?'вкл':'выкл'),'audio:effects','secondary')}</div><div class="audio-volumes">${['music','effects'].map(channel=>`<label>${channel==='music'?'Музыка':'Эффекты'}<input type="range" min="0" max="100" step="1" data-volume="${channel}" value="${Math.round(audio.settings[channel+'Volume']*100)}" aria-label="Громкость ${channel==='music'?'музыки':'эффектов'}"><output id="volume-${channel}">${Math.round(audio.settings[channel+'Volume']*100)}%</output></label>`).join('')}</div><div class="row">${online?button(diagnosticsEnabled?'Скрыть диагностику':'Диагностика сети','diagnostics')+button(game.player.pvp?'PvP включён — выключить':'Включить PvP','pvp')+button('Выйти из комнаты','leave-online')+`<p>Комната: <b>${online.code}</b>. Мир продолжает жить.</p>`:''}${button('Продолжить','close','primary')}${button('Сохранить','save','secondary')}${button('Копия сохранения','export','secondary')}${button('Управление','help','secondary')}</div><hr><label ${online?'hidden':''}>Восстановить из файла <input id="importFile" type="file" accept="application/json,.json"></label><p class="muted">Импорт заменит текущий мир только после подтверждения. Локальное сохранение принадлежит этому браузеру; очистка его данных удаляет прогресс.</p><hr>${button('Начать новый путь','new-confirm','danger secondary')}${saveError?`<p class="notice">${escape(saveError)}</p>`:''}`;
   }
   else if(panelName==='help'){
-    html=title('Как играть')+`<div class="keyhelp"><span>Левый круг / WASD — движение; сильное отклонение / Shift — спринт. Кнопка ➤ рядом со стиком — автобег</span><span>Удар / Пробел — атака ближайшей цели</span><span>Блок / удержание Q — защита</span><span>Действие / E — собрать, открыть, прочитать</span><span>Карта / M · Пауза / Esc</span><span>1–9 — предметы на поясе</span></div><hr><p>Соберите дерево и камень вокруг тропы. В меню строительства отметьте участок и поставьте пол. Затем разместите стены по краям, дверь и очаг. Для пола зажмите и протяните область. Для стен протяните область полов — получите замкнутый контур. Одиночное касание ставит стену на ближайшее ребро; R переключает автоматический выбор и шесть направлений. Для прохода выберите дверь и коснитесь стены: она заменится с зачётом материалов. Двигаться при этом можно левым кругом.</p><p>У верстака создайте меч, лук, стрелы, броню и щит. Броню и щит можно надеть или снять в сумке. Без щита блок руками слабее; лук занимает обе руки. Еду можно съесть в сумке. У очага в закрытом доме здоровье восстанавливается, если вы сыты и рядом нет монстров. Короткая вспышка перед атакой противника — время решить, блокировать ли или отступить.</p><p>Нападение начнётся после предупреждения. Закрытая дверь удерживает обычных врагов; развитый дом привлекает разрушителей. Кнопка действия работает с ближайшим объектом — подойдите непосредственно к нужному.</p><div class="row">${button(started?'Вернуться в игру':'К началу',started?'close':'intro','primary')}</div>`;
+    html=title('Как играть')+`<div class="keyhelp"><span>Левый круг / WASD — шаг. Кнопка ➤ над стиком включает и выключает автобег</span><span>Удар / Пробел — атака ближайшей цели</span><span>Блок / удержание Q — защита</span><span>Действие / E — собрать, открыть, прочитать</span><span>Карта / M · Пауза / Esc</span><span>1–9 — предметы на поясе</span></div><hr><p>Соберите дерево и камень вокруг тропы. В меню строительства отметьте участок и поставьте пол. Затем разместите стены по краям, дверь и очаг. Для пола зажмите и протяните область. Для стен протяните область полов — получите замкнутый контур. Одиночное касание ставит стену на ближайшее ребро; R переключает автоматический выбор и шесть направлений. Для прохода выберите дверь и коснитесь стены: она заменится с зачётом материалов. Двигаться при этом можно левым кругом.</p><p>У верстака создайте меч, лук, стрелы, броню и щит. Броню и щит можно надеть или снять в сумке. Без щита блок руками слабее; лук занимает обе руки. Еду можно съесть в сумке. У очага в закрытом доме здоровье восстанавливается, если вы сыты и рядом нет монстров. Короткая вспышка перед атакой противника — время решить, блокировать ли или отступить.</p><p>Нападение начнётся после предупреждения. Закрытая дверь удерживает обычных врагов; развитый дом привлекает разрушителей. Кнопка действия работает с ближайшим объектом — подойдите непосредственно к нужному.</p><div class="row">${button(started?'Вернуться в игру':'К началу',started?'close':'intro','primary')}</div>`;
   }
   else if(panelName==='new-confirm'){
     html=title('Начать заново?')+`<p>Текущий мир будет заменён. Если он нужен, сначала сохраните копию через меню паузы.</p><div class="row">${button('Заменить мир','new','danger secondary')}${button('Отмена',started?'pause':'intro','primary')}</div>`;
@@ -354,20 +354,20 @@ function doInteract(){
   if(result==='craft'||result==='storage')openPanel(result);
   if(result?.note)openPanel('journal');
 }
-for(const b of document.querySelectorAll('[data-panel]'))b.addEventListener('click',()=>{
+for(const b of document.querySelectorAll('[data-panel]'))pointerBindings.push(bindTap(b,()=>{
   if(started&&!game.player.dead)openPanel(b.dataset.panel);
-});
-$('mapBtn').onclick=()=>{
+}));
+pointerBindings.push(bindTap($('mapBtn'),()=>{
   if(started&&!game.player.dead)openPanel('map');
-};
-$('pauseBtn').onclick=()=>{
+}));
+pointerBindings.push(bindTap($('pauseBtn'),()=>{
   if(started&&!game.player.dead){
     safeSave();
     openPanel('pause');
   }
-};
+}));
 const turnEdge=()=>{buildEdge=buildEdge===null?0:buildEdge===5?null:buildEdge+1;hud();};
-$('turnBuild').onclick=turnEdge;
+pointerBindings.push(bindTap($('turnBuild'),turnEdge));
 $('quickbar').addEventListener('pointerdown',event=>{
   if(!canControl()||(event.pointerType==='mouse'&&event.button!==0))return;const b=event.target.closest('[data-slot]');if(!b)return;event.preventDefault();
   G.useQuickSlot(game,Number(b.dataset.slot));safeSave();hud();
@@ -379,10 +379,10 @@ $('block').dataset.tooltip='Удерживайте для блока · Q. Щи�
 $('interact').dataset.tooltip='Действие · E. Сбор ресурсов, двери, сундуки и находки рядом с героем. Дерево и камень требуют нескольких ударов.';
 $('block').innerHTML=icon('hand')+'<small>Блок руками · Q</small>';
 
-$('rotateBuild').onclick=()=>{
+pointerBindings.push(bindTap($('rotateBuild'),()=>{
   buildType=null;
   hud();
-};
+}));
 const canControl = () => !game.paused && !game.player.dead;
 function bindAction(id, down, up = () => {}) {
   const element = $(id);
@@ -393,7 +393,7 @@ function bindAction(id, down, up = () => {}) {
   }));
 }
 bindAction('attack', () => {autoRun=false;G.attack(game);});
-$('autoRun').addEventListener('click',()=>{if(canControl()){autoRun=!autoRun;$('autoRun').setAttribute?.('aria-pressed',String(autoRun));}});
+pointerBindings.push(bindTap($('autoRun'),()=>{if(canControl()){autoRun=!autoRun;$('autoRun').setAttribute?.('aria-pressed',String(autoRun));}}));
 
 bindAction('interact',()=>{touchInteract=true;doInteract();},()=>{touchInteract=false;});
 bindAction('block', () => touchBlock = true, () => touchBlock = false);
@@ -413,7 +413,6 @@ function updateJoy(event) {
   const length = Math.hypot(x, y);
   if (length > 1) { x /= length; y /= length; }
   const move=joystickVector(x,y);joy.x=move.x;joy.y=move.y;
-  joy.sprint = joystickSprint(length,joy.sprint);
   $('stick').style.transform = 'translate(' + x * 30 + 'px,' + y * 30 + 'px)';
 }
 // Mouse hover still previews placement without requiring a pressed button.
@@ -545,7 +544,7 @@ function frame(now){
   if(keys.has('q')||touchBlock||keys.has(' '))autoRun=false;
   if(Math.hypot(sx,sy)>.1){const length=Math.hypot(sx,sy);runHeading={x:sx/length,y:sy/length};}
   else if(autoRun){sx=runHeading.x;sy=runHeading.y;}
-  input.sprint=autoRun||!!joy?.sprint||keys.has('shift');
+  input.sprint=autoRun;
   $('autoRun').setAttribute?.('aria-pressed',String(autoRun));
   const move=movementVector(sx,sy);
   input.x=move.x;
